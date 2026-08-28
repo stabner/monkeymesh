@@ -67,12 +67,9 @@ $cfgWallet = @'
 '@
 
 $packs = @(
-    @{ Name = "MonkeyMesh"; ZipAs = "Desktop"; FolderAs = "MonkeyMesh-Desktop"; Require = @("MonkeyMesh.exe", "mesh-node.exe"); Config = $cfgWallet }
     @{ Name = "Miner"; Require = @("MonkeyMesh-Miner.exe"); Config = $cfgMiner }
     @{ Name = "Node"; Require = @("MonkeyMesh-Node.exe", "mesh-node.exe"); Config = $cfgNode }
     @{ Name = "Wallet"; Require = @("MonkeyMesh-Wallet.exe"); Config = $cfgWallet }
-    @{ Name = "AiWorker"; Require = @("mesh-gpu-worker.exe"); Config = $null }
-    @{ Name = "Orchestrator"; Require = @("mesh-orchestrator.exe", "mesh-gpu-worker.exe"); Config = $null }
 )
 
 $zips = @()
@@ -128,15 +125,13 @@ Site / explorer: https://hashmonkeys.cloud
 
 | Pack | What it is |
 |------|------------|
-| **Desktop** | Full Windows app: wallet, Fusion mine, optional local node (start here) |
 | **Miner** | Miner GUI (CPU + NVIDIA + AMD) |
 | **Node** | Node GUI |
 | **Wallet** | Wallet GUI + CLI |
-| **AiWorker** / **Orchestrator** | Research worker / local orchestrator |
 
 Unzip each archive as a folder. Keep every DLL next to the exe.
 
-**Windows GUIs:** double-click the ``.exe`` or ``Start-*.vbs`` (no Command Prompt). AiWorker is a console app.
+**Windows GUIs:** double-click the ``.exe`` or ``Start-*.vbs`` (no Command Prompt).
 
 Set your ``mesh01...`` address in the GUI. Packs ship with empty payout fields.
 

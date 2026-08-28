@@ -5,18 +5,14 @@ Ship **one folder per app**. Each pack is standalone: binary + start script + co
 ```
 Releases/
   Windows/
-    MonkeyMesh/      Desktop app (wallet + Fusion mine + optional local node)
+    Miner/           miner GUI (CPU + NVIDIA + AMD)
     Node/            MonkeyMesh-Node.exe + mesh-node.exe + Start-Node.bat
     Wallet/          MonkeyMesh-Wallet.exe + CLI
-    AiWorker/        mesh-gpu-worker - research jobs (90% pot units)
-    Orchestrator/    local orch + worker (optional; seed already hosts orch)
-    Miner/           miner GUI (CPU + NVIDIA + AMD)
   Ubuntu/
     Node/            mesh-node + start-node.sh
-    Orchestrator/    orch + gpu-worker + scripts
 ```
 
-**Markets (live):** `Miner` finds MeshHash / Fusion blocks and can pull AI. `AiWorker` is research-only. Height >= 1 pays 90% contributor / 10% node. Fusion v4 at height 80 needs CPU + GPU.
+**Markets (live):** `Miner` finds MeshHash / Fusion blocks. Height >= 1 pays 90% contributor / 10% node. Fusion v4 at height 80 needs CPU + GPU.
 ## Build / refresh
 
 From the repo root:
