@@ -336,7 +336,7 @@ pause
 @"
 MonkeyMesh AI Worker (Windows)
 
-MonkeyMesh-Miner / CpuMiner / GpuMiner  = MeshHash / Fusion blocks (90% pot)
+MonkeyMesh-Miner  = MeshHash / Fusion blocks (90% pot)
 AiWorker (this folder)                 = protocol research + MNIST (same pot)
 
 Double-click Start-AiWorker.bat — seed AI board (http://seednode.hashmonkeys.cloud:18080).
@@ -349,7 +349,7 @@ Write-Manifest $aiDir "MonkeyMesh AI Worker (Windows)" (@(
     ) + $aiDlls)
 
 # ---------- Windows miners via existing packager (into Windows\) ----------
-Write-Host "==> Windows miners (CpuMiner / GpuMiner / Miner)"
+Write-Host "==> Windows miner (Miner GUI: CPU + NVIDIA + AMD)"
 & (Join-Path $PSScriptRoot "stage-miner-releases.ps1") -SkipBuild -OutRoot $WinRoot
 # PowerShell scripts do not reliably set LASTEXITCODE; trust terminating errors only.
 if (-not $?) { throw "stage-miner-releases failed" }
@@ -516,24 +516,24 @@ if (-not $SkipUbuntu) {
 foreach ($legacy in @("CpuMiner", "GpuMiner", "Miner")) {
     $legacyDir = Join-Path $Root "Releases\$legacy"
     Ensure-Dir $legacyDir
-    # Drop old flat pack contents (canonical packs live under Windows\)
+    $target = "Miner"
     Get-ChildItem $legacyDir -Force -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -notin @("MOVED.txt", "Open-Windows-Pack.bat") } |
         Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     @"
 This pack moved to:
 
-  Releases\Windows\$legacy\
+  Releases\Windows\Miner\
+
+CPU-only and GPU-only ship packs are retired. Use the Miner GUI (CPU + NVIDIA + AMD).
 
 Run staging:
   .\Launchers\stage-platform-releases.ps1
-
-Or open the Windows folder directly.
 "@ | Set-Content -Path (Join-Path $legacyDir "MOVED.txt") -Encoding utf8
     @"
 @echo off
-echo Pack moved to Releases\Windows\$legacy\
-start "" explorer "%~dp0..\Windows\$legacy"
+echo Pack moved to Releases\Windows\Miner\
+start "" explorer "%~dp0..\Windows\Miner"
 "@ | Set-Content -Path (Join-Path $legacyDir "Open-Windows-Pack.bat") -Encoding ascii
 }
 
@@ -544,10 +544,8 @@ Write-Host "  Releases\Windows\Node"
 Write-Host "  Releases\Windows\Wallet"
 Write-Host "  Releases\Windows\Orchestrator"
 Write-Host "  Releases\Windows\AiWorker"
-Write-Host "  Releases\Windows\CpuMiner"
-Write-Host "  Releases\Windows\GpuMiner"
 Write-Host "  Releases\Windows\Miner"
+Write-Host "  Releases\Windows\MonkeyMesh   (Desktop)"
 Write-Host "  Releases\Ubuntu\Node"
 Write-Host "  Releases\Ubuntu\Orchestrator"
-Write-Host "  Releases\Ubuntu\CpuMiner"
 Write-Host ""

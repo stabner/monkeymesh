@@ -1,11 +1,11 @@
 @echo off
-REM Jump to the portable CPU miner release pack
-cd /d "%~dp0..\..\Releases\CpuMiner"
-if not exist "MonkeyMesh-CpuMiner.exe" (
-  echo CPU miner release pack is missing.
+REM CPU-only pack retired — use the Miner GUI (CPU + NVIDIA + AMD)
+cd /d "%~dp0..\..\Releases\Windows\Miner"
+if not exist "MonkeyMesh-Miner.exe" (
+  echo Miner pack is missing.
   echo Run: Launchers\stage-miner-releases.ps1
   pause
   exit /b 1
 )
-call Start-CpuMiner.bat
-exit /b %ERRORLEVEL%
+wscript //nologo "%~dp0..\..\Releases\Windows\Miner\_start-gui.vbs" "MonkeyMesh-Miner.exe"
+exit /b 0

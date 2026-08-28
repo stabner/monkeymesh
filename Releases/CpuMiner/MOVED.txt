@@ -1,8 +1,5 @@
 ﻿This pack moved to:
 
-  Releases\Windows\CpuMiner\
+  Releases\Windows\Miner\
 
-Run staging:
-  .\Launchers\stage-platform-releases.ps1
-
-Or open the Windows folder directly.
+CPU-only and GPU-only ship packs are retired. Use the Miner GUI (CPU + NVIDIA + AMD).

@@ -30,14 +30,6 @@ Ensure-Dir $stage
 $zipDir = Join-Path $OutRoot "zips"
 Ensure-Dir $zipDir
 
-$cfgCpu = @'
-{
-  "rpc": "http://seednode.hashmonkeys.cloud:18081,http://seednode.hashmonkeys.cloud:18080",
-  "address": "",
-  "blocks": 0,
-  "max_nonces": 5000000
-}
-'@
 $cfgMiner = @'
 {
   "rpc": "https://eu.hashmonkeys.cloud",
@@ -77,10 +69,8 @@ $cfgWallet = @'
 $packs = @(
     @{ Name = "MonkeyMesh"; ZipAs = "Desktop"; FolderAs = "MonkeyMesh-Desktop"; Require = @("MonkeyMesh.exe", "mesh-node.exe"); Config = $cfgWallet }
     @{ Name = "Miner"; Require = @("MonkeyMesh-Miner.exe"); Config = $cfgMiner }
-    @{ Name = "GpuMiner"; Require = @("MonkeyMesh-GpuMiner.exe"); Config = $cfgMiner }
     @{ Name = "Node"; Require = @("MonkeyMesh-Node.exe", "mesh-node.exe"); Config = $cfgNode }
     @{ Name = "Wallet"; Require = @("MonkeyMesh-Wallet.exe"); Config = $cfgWallet }
-    @{ Name = "CpuMiner"; Require = @("MonkeyMesh-CpuMiner.exe"); Config = $cfgCpu }
     @{ Name = "AiWorker"; Require = @("mesh-gpu-worker.exe"); Config = $null }
     @{ Name = "Orchestrator"; Require = @("mesh-orchestrator.exe", "mesh-gpu-worker.exe"); Config = $null }
 )
@@ -142,15 +132,13 @@ Site / explorer: https://hashmonkeys.cloud
 | **Miner** | Miner GUI (CPU + NVIDIA + AMD) |
 | **Node** | Node GUI |
 | **Wallet** | Wallet GUI + CLI |
-| **CpuMiner** | CPU miner (console). Official CPU-only refuses Fusion v5 at height 29,000 |
-| **GpuMiner** | Same GUI as Miner (legacy pack name) |
 | **AiWorker** / **Orchestrator** | Research worker / local orchestrator |
 
 Unzip each archive as a folder. Keep every DLL next to the exe.
 
-**Windows GUIs:** double-click the ``.exe`` or ``Start-*.vbs`` (no Command Prompt). CpuMiner and AiWorker are console apps.
+**Windows GUIs:** double-click the ``.exe`` or ``Start-*.vbs`` (no Command Prompt). AiWorker is a console app.
 
-Set your ``mesh01...`` address in the GUI, or in ``config.json`` for CpuMiner. Packs ship with empty payout fields.
+Set your ``mesh01...`` address in the GUI. Packs ship with empty payout fields.
 
 Fusion v4 is live from height 80 (45% seal / 45% GPU work / 10% nodes).
 "@

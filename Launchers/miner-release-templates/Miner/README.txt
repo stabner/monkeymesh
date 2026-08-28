@@ -8,7 +8,7 @@ One app for both kinds of work (shared 90% contributor pot after height 1):
 
 From height 80, MeshHash-Fusion requires both CPU and GPU lanes in one digest.
 From height 29,000, sequential Fusion (v5) binds the CPU seal to that GPU ticket.
-Official CPU-only miners refuse v5 — hop this all-in-one (or GpuMiner) before then.
+Official CPU-only miners refuse v5 — use this Miner pack (GPU required) before then.
 
 The app has three tabs: Mining (rates, payout, hardware), Node (height, tip,
 difficulty, peers, v5 countdown), and Events (tagged mine / node / pay / AI list).

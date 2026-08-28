@@ -8,18 +8,15 @@ Releases/
     MonkeyMesh/      Desktop app (wallet + Fusion mine + optional local node)
     Node/            MonkeyMesh-Node.exe + mesh-node.exe + Start-Node.bat
     Wallet/          MonkeyMesh-Wallet.exe + CLI
-    AiWorker/        mesh-gpu-worker — research jobs (90% pot units)
+    AiWorker/        mesh-gpu-worker - research jobs (90% pot units)
     Orchestrator/    local orch + worker (optional; seed already hosts orch)
-    CpuMiner/        CPU miner pack (Fusion lane A)
-    GpuMiner/        GPU miner GUI (Fusion lane B + AI)
-    Miner/           miner GUI (CPU + GPU hash + AI)
+    Miner/           miner GUI (CPU + NVIDIA + AMD)
   Ubuntu/
     Node/            mesh-node + start-node.sh
     Orchestrator/    orch + gpu-worker + scripts
-    CpuMiner/        mesh-miner-cpu + start-cpu-miner.sh
 ```
 
-**Markets (live):** `Miner` / `GpuMiner` find MeshHash / Fusion blocks and pull AI. `AiWorker` is research-only. Height ≥ 1 pays 90% contributor / 10% node. Fusion v4 at height 80 needs CPU + GPU.
+**Markets (live):** `Miner` finds MeshHash / Fusion blocks and can pull AI. `AiWorker` is research-only. Height >= 1 pays 90% contributor / 10% node. Fusion v4 at height 80 needs CPU + GPU.
 ## Build / refresh
 
 From the repo root:
@@ -44,4 +41,4 @@ Ubuntu binaries are copied from `MESH_NAS_HOST` when that env is set and SSH wor
 
 `Launchers\` stays the in-repo development lab. Prefer `Releases\` for zips you give to others.
 
-Legacy flat paths `Releases\CpuMiner` etc. only contain a pointer to `Releases\Windows\...`.
+Legacy flat paths `Releases/{CpuMiner,GpuMiner,Miner}/` point at `Releases\Windows\Miner`.

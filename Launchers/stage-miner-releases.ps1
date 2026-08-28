@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Stage fully self-contained CpuMiner / GpuMiner / Miner folders under Releases\Windows\
+  Stage the Miner GUI pack (CPU + NVIDIA + AMD) under Releases\Windows\Miner
 #>
 
 [CmdletBinding()]
@@ -139,8 +139,8 @@ if (-not $SkipBuild) {
         $env:Path = (Join-Path $env:CUDA_PATH "bin") + ";" + $env:Path
     }
     $env:MESH_REQUIRE_CUDA = "1"
-    cargo build --release -p mesh-miner-cpu -p mesh-miner-gpu
-    if ($LASTEXITCODE -ne 0) { throw "cargo build failed (CUDA required for GpuMiner/Miner)" }
+    cargo build --release -p mesh-miner-gpu
+    if ($LASTEXITCODE -ne 0) { throw "cargo build failed (CUDA required for Miner)" }
 
     $cudaOut = Get-ChildItem (Join-Path $Root "target\release\build\mesh-miner-gpu-*\output") -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending |
@@ -160,7 +160,6 @@ if (-not $SkipBuild) {
 $cpuSrc = Join-Path $Root "target\release\mesh-miner-cpu.exe"
 $gpuCliSrc = Join-Path $Root "target\release\mesh-miner-gpu.exe"
 $gpuGuiSrc = Join-Path $Root "target\release\mesh-miner-gpu-gui.exe"
-if (-not (Test-Path $cpuSrc)) { throw "Missing $cpuSrc - build first" }
 if (-not (Test-Path $gpuCliSrc)) { throw "Missing $gpuCliSrc - build first" }
 if (-not (Test-Path $gpuGuiSrc)) { throw "Missing $gpuGuiSrc - build first" }
 
@@ -174,13 +173,6 @@ if (Test-Path $seedCfg) {
     } catch { }
 }
 
-# -------- CPU release --------
-$cpuDir = Join-Path $OutRoot "CpuMiner"
-Copy-TemplateFiles "CpuMiner" $cpuDir
-Copy-Item -Force $cpuSrc (Join-Path $cpuDir "MonkeyMesh-CpuMiner.exe")
-$cpuRuntime = Copy-MsvcRuntime $cpuDir
-foreach ($n in $cpuRuntime) { Write-Host "  CPU bundled $n" }
-
 function Set-ConfigAddress($cfg, [string]$path, [string]$addr) {
     if (-not $addr) { return $false }
     $has = $null -ne $cfg.PSObject.Properties["address"]
@@ -192,18 +184,7 @@ function Set-ConfigAddress($cfg, [string]$path, [string]$addr) {
     return $true
 }
 
-# Seed address into config if still empty
-$cpuCfgPath = Join-Path $cpuDir "config.json"
-$cpuCfg = Get-Content -Raw $cpuCfgPath | ConvertFrom-Json
-[void](Set-ConfigAddress $cpuCfg $cpuCfgPath $seedAddress)
-Write-Manifest $cpuDir (@(
-    "MonkeyMesh-CpuMiner.exe",
-    "Start-CpuMiner.bat",
-    "config.json"
-) + $cpuRuntime)
-Write-Host "  staged Releases\CpuMiner\MonkeyMesh-CpuMiner.exe"
-
-# -------- All-in-one Miner release (CPU + NVIDIA + AMD) --------
+# -------- Miner release (CPU + NVIDIA + AMD in one GUI) --------
 $minerDir = Join-Path $OutRoot "Miner"
 Copy-TemplateFiles "Miner" $minerDir
 Install-GuiLauncher -RepoRoot $Root -DestDir $minerDir -ExeName "MonkeyMesh-Miner.exe" -StartBase "Start-Miner"
@@ -232,56 +213,24 @@ Write-Manifest $minerDir (@(
     "config.json",
     $cudaName
 ) + $minerRuntime)
-Write-Host "  staged Releases\Miner\MonkeyMesh-Miner.exe (all-in-one GUI)"
+Write-Host "  staged Releases\Windows\Miner\MonkeyMesh-Miner.exe"
 
-# -------- GPU release (same GUI, legacy name) --------
-$gpuDir = Join-Path $OutRoot "GpuMiner"
-Copy-TemplateFiles "GpuMiner" $gpuDir
-Install-GuiLauncher -RepoRoot $Root -DestDir $gpuDir -ExeName "MonkeyMesh-GpuMiner.exe" -StartBase "Start-GpuMiner"
-Copy-Item -Force $gpuGuiSrc (Join-Path $gpuDir "MonkeyMesh-GpuMiner.exe")
-Copy-Item -Force $gpuCliSrc (Join-Path $gpuDir "mesh-miner-gpu-cli.exe")
-$gpuRuntime = Copy-MsvcRuntime $gpuDir
-foreach ($n in $gpuRuntime) { Write-Host "  GPU bundled $n" }
-
-Copy-Item -Force $cudaDll (Join-Path $gpuDir $cudaName)
-Write-Host "  GPU bundled $cudaName"
-
-$gpuCfgPath = Join-Path $gpuDir "config.json"
-$gpuCfg = Get-Content -Raw $gpuCfgPath | ConvertFrom-Json
-[void](Set-ConfigAddress $gpuCfg $gpuCfgPath $seedAddress)
-# Migrate old backend configs: ensure selected exists
-if ($null -eq $gpuCfg.PSObject.Properties["selected"]) {
-    $gpuCfg | Add-Member -NotePropertyName selected -NotePropertyValue @()
-    ($gpuCfg | ConvertTo-Json -Depth 5) + "`n" | Set-Content -Path $gpuCfgPath -Encoding utf8 -NoNewline
-}
-Write-Manifest $gpuDir (@(
-    "MonkeyMesh-GpuMiner.exe",
-    "mesh-miner-gpu-cli.exe",
-    "Start-GpuMiner.vbs",
-    "Start-GpuMiner.bat",
-    "_start-gui.vbs",
-    "config.json",
-    $cudaName
-) + $gpuRuntime)
-Write-Host "  staged Releases\GpuMiner\MonkeyMesh-GpuMiner.exe (GUI)"
-Write-Host "  staged Releases\GpuMiner\mesh-miner-gpu-cli.exe"
+# -------- GPU-only pack retired (same GUI as Miner) --------
 
 # Keep Launchers\Miners\bin in sync for lab scripts
 $legacyBin = Join-Path $Root "Launchers\Miners\bin"
 Ensure-Dir $legacyBin
-Copy-Item -Force $cpuSrc (Join-Path $legacyBin "mesh-miner-cpu.exe")
+if (Test-Path $cpuSrc) {
+    Copy-Item -Force $cpuSrc (Join-Path $legacyBin "mesh-miner-cpu.exe")
+}
 Copy-Item -Force $gpuCliSrc (Join-Path $legacyBin "mesh-miner-gpu.exe")
 Copy-Item -Force $gpuGuiSrc (Join-Path $legacyBin "mesh-miner-gpu-gui.exe")
 Copy-Item -Force $cudaDll (Join-Path $legacyBin $cudaName)
 Copy-MsvcRuntime $legacyBin | Out-Null
 
 Write-Host ""
-Write-Host "==> Done (portable miner folders under $OutRoot)"
-Write-Host "  $cpuDir"
-Get-ChildItem $cpuDir -File | ForEach-Object { Write-Host ("    {0,-28} {1,10:N0} bytes" -f $_.Name, $_.Length) }
-Write-Host "  $minerDir   (recommended all-in-one)"
+Write-Host "==> Done (portable miner folder under $OutRoot)"
+Write-Host "  $minerDir"
 Get-ChildItem $minerDir -File | ForEach-Object { Write-Host ("    {0,-28} {1,10:N0} bytes" -f $_.Name, $_.Length) }
-Write-Host "  $gpuDir"
-Get-ChildItem $gpuDir -File | ForEach-Object { Write-Host ("    {0,-28} {1,10:N0} bytes" -f $_.Name, $_.Length) }
 Write-Host ""
 exit 0
