@@ -5,14 +5,15 @@ Ship **one folder per app**. Each pack is standalone: binary + start script + co
 ```
 Releases/
   Windows/
-    Miner/           All in one miner GUI (CPU + NVIDIA + AMD)
+    MonkeyMesh/      All in one (wallet + Fusion mine + optional local node)
+    Miner/           miner GUI (CPU + NVIDIA + AMD)
     Node/            MonkeyMesh-Node.exe + mesh-node.exe + Start-Node.bat
     Wallet/          MonkeyMesh-Wallet.exe + CLI
   Ubuntu/
     Node/            mesh-node + start-node.sh
 ```
 
-**Markets (live):** the All in one miner finds MeshHash / Fusion blocks. Height >= 1 pays 90% contributor / 10% node. Fusion v4 at height 80 needs CPU + GPU.
+**Markets (live):** Miner / All in one find MeshHash / Fusion blocks. Height >= 1 pays 90% contributor / 10% node. Fusion v4 at height 80 needs CPU + GPU.
 ## Build / refresh
 
 From the repo root:

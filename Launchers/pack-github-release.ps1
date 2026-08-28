@@ -67,7 +67,8 @@ $cfgWallet = @'
 '@
 
 $packs = @(
-    @{ Name = "Miner"; ZipAs = "All-in-One"; FolderAs = "All-in-One"; Require = @("MonkeyMesh-Miner.exe"); Config = $cfgMiner }
+    @{ Name = "MonkeyMesh"; ZipAs = "All-in-One"; FolderAs = "All-in-One"; Require = @("MonkeyMesh.exe", "mesh-node.exe"); Config = $cfgWallet }
+    @{ Name = "Miner"; Require = @("MonkeyMesh-Miner.exe"); Config = $cfgMiner }
     @{ Name = "Node"; Require = @("MonkeyMesh-Node.exe", "mesh-node.exe"); Config = $cfgNode }
     @{ Name = "Wallet"; Require = @("MonkeyMesh-Wallet.exe"); Config = $cfgWallet }
 )
@@ -125,7 +126,8 @@ Site / explorer: https://hashmonkeys.cloud
 
 | Pack | What it is |
 |------|------------|
-| **All in one** | Miner GUI (CPU + NVIDIA + AMD) |
+| **All in one** | Wallet + Fusion mine + optional local node |
+| **Miner** | Miner GUI only (CPU + NVIDIA + AMD) |
 | **Node** | Node GUI |
 | **Wallet** | Wallet GUI + CLI |
 
