@@ -28,7 +28,7 @@ GUI packs are Windows apps — they should not open a Command Prompt. Double-cli
 
 | Pack | What it is |
 |------|------------|
-| `Releases/Windows/Miner` | Miner GUI (CPU + NVIDIA + AMD) |
+| **All in one** (`Releases/Windows/Miner`) | Miner GUI (CPU + NVIDIA + AMD) |
 | `Releases/Windows/Node` | Node GUI (`mesh-node.exe` is the headless console binary) |
 | `Releases/Windows/Wallet` | Wallet GUI + CLI |
 
