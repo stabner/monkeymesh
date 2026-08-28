@@ -1,0 +1,16 @@
+﻿MonkeyMesh Node (Windows)
+Generated: 2026-08-28T12:25:24.3080664+02:00
+
+Keep everything in this folder together (portable pack).
+
+Required:
+  - MonkeyMesh-Node.exe
+  - mesh-node.exe
+  - Start-Node.vbs
+  - Start-Node.bat
+  - _start-gui.vbs
+  - config.json
+  - vcruntime140.dll
+  - vcruntime140_1.dll
+  - msvcp140.dll
+  - concrt140.dll

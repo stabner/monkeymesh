@@ -1,0 +1,12 @@
+﻿MonkeyMesh AI Worker (Windows)
+Generated: 2026-08-23T19:38:42.2640907+02:00
+
+Keep everything in this folder together (portable pack).
+
+Required:
+  - mesh-gpu-worker.exe
+  - Start-AiWorker.bat
+  - vcruntime140.dll
+  - vcruntime140_1.dll
+  - msvcp140.dll
+  - concrt140.dll

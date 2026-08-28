@@ -1,0 +1,17 @@
+﻿MonkeyMesh Wallet (Windows)
+Generated: 2026-08-28T12:25:24.3829534+02:00
+
+Keep everything in this folder together (portable pack).
+
+Required:
+  - MonkeyMesh-Wallet.exe
+  - mesh-wallet-cli.exe
+  - Start-Wallet.vbs
+  - Start-Wallet.bat
+  - _start-gui.vbs
+  - config.json
+  - vcruntime140.dll
+  - vcruntime140_1.dll
+  - msvcp140.dll
+  - concrt140.dll
+  - cudart64_13.dll

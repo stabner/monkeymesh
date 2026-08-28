@@ -1,0 +1,15 @@
+{
+  "seed_dns": "seednode.hashmonkeys.cloud",
+  "p2p": "seednode.hashmonkeys.cloud:39001",
+  "rpc": "http://seednode.hashmonkeys.cloud:18080,http://seednode.hashmonkeys.cloud:18081",
+  "orch": "http://seednode.hashmonkeys.cloud:18080",
+  "edges": [
+    "http://seednode.hashmonkeys.cloud:18081",
+    "http://seednode.hashmonkeys.cloud:18083"
+  ],
+  "connect": [
+    "seednode.hashmonkeys.cloud:39001"
+  ],
+  "pool": "https://eu.hashmonkeys.cloud",
+  "note": "Public testnet defaults. Mine over HTTPS at eu.hashmonkeys.cloud. Extra operator peers belong in MESH_RPC / MESH_RPC_EDGES, not this file."
+}

@@ -1,0 +1,13 @@
+[package]
+name = "meshhash-cpu"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "MeshHash-CPU: memory-hard PoW for MonkeyMesh"
+
+[dependencies]
+mesh-types = { workspace = true }
+blake3 = { workspace = true }
+
+[dev-dependencies]
+hex = { workspace = true }

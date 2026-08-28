@@ -1,0 +1,13 @@
+﻿MonkeyMesh miner release pack
+Generated: 2026-08-23T19:38:42.3407917+02:00
+
+Required files in this folder:
+  - MonkeyMesh-CpuMiner.exe
+  - Start-CpuMiner.bat
+  - config.json
+  - vcruntime140.dll
+  - vcruntime140_1.dll
+  - msvcp140.dll
+  - concrt140.dll
+
+This folder is portable. Keep these files together.

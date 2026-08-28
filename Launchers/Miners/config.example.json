@@ -1,0 +1,10 @@
+{
+  "rpc": "https://eu.hashmonkeys.cloud",
+  "blocks": 0,
+  "loop": true,
+  "address": "",
+  "wallet_key": "data/miner.key",
+  "max_nonces": 5000000,
+  "device": 0,
+  "batch": 256
+}

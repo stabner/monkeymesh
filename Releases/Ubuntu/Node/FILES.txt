@@ -1,0 +1,9 @@
+﻿MonkeyMesh Node (Ubuntu)
+Generated: 2026-08-22T08:09:30.0112282+02:00
+
+Keep everything in this folder together (portable pack).
+
+Required:
+  - mesh-node
+  - start-node.sh
+  - config.json

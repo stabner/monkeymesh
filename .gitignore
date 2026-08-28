@@ -1,0 +1,74 @@
+/target/
+**/*.rs.bk
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+data/
+!crates/mesh-ai/data/
+!crates/mesh-ai/data/mnist4096.bin
+crates/mesh-ai/data/*.gz
+*.db
+wallet.keys
+.env
+.env.*
+agent.local.json
+**/agent.local.json
+Launchers/**/agent.local.json
+
+# Keys, vaults, cookies — never publish
+*.key
+*.pem
+**/wallet.vault.json
+**/wallet.vault.addresses.json
+**/rpc.token
+**/ai.token
+
+# Standalone launcher runtime / staged binaries
+Launchers/**/bin/**
+Launchers/**/data/**
+Launchers/**/*.exe
+Launchers/**/*.dll
+!Launchers/**/bin/.gitkeep
+!Launchers/**/data/.gitkeep
+
+# Distributable packs (exe/dlls/so staged by Launchers/stage-platform-releases.ps1)
+Releases/**/*.exe
+Releases/**/*.dll
+Releases/**/*.so
+Releases/**/data/**
+Releases/Ubuntu/**/mesh-node
+Releases/Ubuntu/**/mesh-orchestrator
+Releases/Ubuntu/**/mesh-gpu-worker
+Releases/Ubuntu/**/mesh-miner-cpu
+Releases/Ubuntu/**/mesh-miner-gpu
+Releases/Ubuntu/**/mesh-miner-gpu-gui
+Releases/Ubuntu/**/mesh-pool
+Releases/Ubuntu/**/mesh-wallet
+Releases/Ubuntu/**/mesh-wallet-cli
+*.exe.new
+Releases/**/*.new
+!Releases/**/data/.gitkeep
+!Releases/**/*.bat
+!Releases/**/*.vbs
+!Releases/**/*.sh
+!Releases/**/*.json
+!Releases/**/*.txt
+!Releases/**/*.md
+
+# Local lab / IDE
+.cursor/
+*.log
+**/node_modules/
+apps/mesh-wallet/dist/
+
+# Informal brand dumps (official logos stay tracked)
+branding/Image*.png
+branding/wallet4_black_back.png
+
+# Operator-local hosts, payouts, and staged user configs (never publish)
+Launchers/testnet/local.env
+Launchers/Miners/config.json
+Launchers/_tmp*/
+Releases/**/config.json

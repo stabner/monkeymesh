@@ -1,0 +1,17 @@
+{
+  "listen": "0.0.0.0:39011",
+  "rpc": "0.0.0.0:18080",
+  "connect": [
+    "seednode.hashmonkeys.cloud:39001"
+  ],
+  "mine": false,
+  "mine_blocks": 0,
+  "chain": "data/chain.bin",
+  "wallet": "data/wallet.key",
+  "p2p_key": "data/p2p.key",
+  "miner_key": "data/wallet.key",
+  "operator_address": "",
+  "operator_vault": "",
+  "orch": "http://seednode.hashmonkeys.cloud:18080",
+  "bottom_h": 280.0
+}

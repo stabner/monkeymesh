@@ -1,0 +1,10 @@
+﻿MonkeyMesh Orchestrator (Ubuntu)
+Generated: 2026-08-22T08:09:30.0122284+02:00
+
+Keep everything in this folder together (portable pack).
+
+Required:
+  - mesh-orchestrator
+  - mesh-gpu-worker
+  - start-orchestrator.sh
+  - start-gpu-worker.sh

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <title>Hashmonkeys · MESH miner dashboard</title>
+  <script>try{var t=localStorage.getItem("mh.theme");if(t==="cyberspace")t="aurora";document.documentElement.setAttribute("data-theme",t||"aurora")}catch(e){document.documentElement.setAttribute("data-theme","aurora")}</script>
+  <link rel="stylesheet" href="css/main.css?v=100" />
+  <link rel="stylesheet" href="css/themes/cyberspace.css?v=4" />
+  <style>
+    .tp-grid { display:grid; gap:.75rem; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin:1rem 0; }
+    .tp-stat { background:var(--card,#141b26); border:1px solid var(--border,#243044); border-radius:12px; padding:1rem; }
+    .tp-stat .label { color:#8b9cb3; font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; }
+    .tp-stat .value { font-size:1.35rem; font-weight:600; margin-top:.35rem; color:#7dd3fc; }
+    .tp-card { background:var(--card,#141b26); border:1px solid var(--border,#243044); border-radius:12px; padding:1rem 1.1rem; margin-bottom:.75rem; }
+    .tp-card h3 { margin:0 0 .65rem; font-size:1rem; }
+    .tp-mono { font-family:"JetBrains Mono",monospace; font-size:.82rem; word-break:break-all; background:#0f1419; padding:.55rem .65rem; border-radius:8px; border:1px solid #1a2332; }
+    .tp-row { display:flex; justify-content:space-between; gap:1rem; padding:.35rem 0; border-bottom:1px solid #1a2332; font-size:.88rem; }
+    .tp-row:last-child { border-bottom:none; }
+    .tp-muted { color:#8b9cb3; font-size:.85rem; }
+    .tp-err { color:#f87171; }
+    .tp-ok { color:#34d399; }
+    .tp-actions { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; }
+    .tp-actions a { padding:.45rem .85rem; border-radius:999px; border:1px solid #3b9eff; text-decoration:none; color:#7dd3fc; font-size:.85rem; }
+    .tp-badge { display:inline-block; font-size:.7rem; padding:.15rem .45rem; border-radius:999px; background:#14532d; color:#86efac; margin-left:.35rem; }
+    .tp-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+    .tp-table th, .tp-table td { text-align:left; padding:.4rem .35rem; border-bottom:1px solid #1a2332; }
+    .tp-table th { color:#8b9cb3; font-weight:500; }
+    .tp-hint { color:#8b9cb3; font-size:.72rem; margin-top:.25rem; }
+    .tp-mat { min-width:7.5rem; }
+    .tp-bar { height:6px; background:#1a2332; border-radius:99px; overflow:hidden; margin-top:.28rem; }
+    .tp-bar > i { display:block; height:100%; background:#38bdf8; }
+    .tp-bar.is-ok > i { background:#34d399; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="mh-nav">
+      <div class="mh-nav__start">
+        <a class="brand-mark brand-mark--logo-only" href="index.html" aria-label="Hashmonkeys — home">
+          <img class="brand-mark__logo" data-mh-logo alt="" width="256" height="256" decoding="async" hidden />
+        </a>
+        <div class="nav-links">
+          <a href="index.html">Main pools</a>
+          <a href="testnet-pool.html" aria-current="page">Testnet</a>
+          <a href="testnet-explorer.html">Explorer</a>
+          <a href="dashboard.html">Dashboard</a>
+        </div>
+      </div>
+    </nav>
+
+    <header class="hero hero--brand">
+      <div class="hero__copy">
+        <p class="hero-kicker">MonkeyMesh · PoMC testnet</p>
+        <h1>MESH testnet pool</h1>
+        <p class="hero-lead">Each accepted block pays the miner on-chain (45% Fusion seal + 45% GPU). Coinbase is <strong>immature for 20 confirms</strong> (~100 s), then spendable.</p>
+        <p class="tp-muted" id="tpStatus">Connecting to seed…</p>
+      </div>
+    </header>
+
+    <form class="tp-card" id="tpAddrForm" style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+      <label class="tp-muted" for="tpAddr">Miner address</label>
+      <input id="tpAddr" name="address" type="search" spellcheck="false" autocomplete="off" placeholder="mesh01…" style="flex:1;min-width:16rem;padding:.45rem .65rem;border-radius:8px;border:1px solid #243044;background:#0f1419;color:inherit;font-family:ui-monospace,monospace" />
+      <button type="submit" style="padding:.45rem .9rem;border-radius:999px;border:1px solid #3b9eff;background:transparent;color:#7dd3fc;cursor:pointer">Load</button>
+    </form>
+
+    <div class="tp-grid" id="tpStats"></div>
+
+    <div class="tp-card">
+      <h3>Your wallet on this tip</h3>
+      <div id="tpYou" class="tp-muted">Paste an address to load spendable vs immature.</div>
+    </div>
+
+    <div class="tp-card">
+      <h3>Blocks &amp; maturity</h3>
+      <p class="tp-muted">MESH uses the same Blocks page as the other pools. Select scheme <strong>DFPPS+</strong> and coin <strong>MonkeyMesh</strong> — pending rows fill to 20 confirms, then spendable.</p>
+      <div class="tp-actions">
+        <a href="blocks.html#scheme=DFPPS%2B&amp;coin=MonkeyMesh">Open Blocks</a>
+        <a href="dashboard.html">Miner dashboard</a>
+      </div>
+    </div>
+
+    <div class="tp-card">
+      <h3>HTTP pool <span class="tp-badge">HTTPS</span></h3>
+      <p class="tp-muted">Miner GUI <strong>Mine target</strong> / config <code>rpc</code>. Public front is HTTPS — do not use raw <code>:12500</code> on the WAN (that port is not forwarded).</p>
+      <div class="tp-row"><span class="tp-muted">Mine target</span><span class="tp-mono">https://eu.hashmonkeys.cloud</span></div>
+      <div class="tp-row"><span class="tp-muted">Pays</span><span id="tpPayout">the wallet in Your address (miner <code>?address=</code>)</span></div>
+      <div class="tp-row"><span class="tp-muted">Pool miners</span><span id="tpPoolMiners">—</span></div>
+      <div class="tp-row"><span class="tp-muted">Edge2 RPC</span><span class="tp-mono">http://seednode.hashmonkeys.cloud:18083</span></div>
+      <pre class="tp-mono" style="margin-top:.75rem">"rpc": "https://eu.hashmonkeys.cloud",
+"address": "mesh01…",
+"worker_name": "rig1"</pre>
+    </div>
+
+    <div class="tp-card">
+      <h3>Wallet payouts</h3>
+      <div class="tp-row"><span class="tp-muted">On-chain pay</span><span>Each accepted block coins Fusion 45% + GPU 45% to the miner address</span></div>
+      <div class="tp-row"><span class="tp-muted">Which address</span><span>The <code>address</code> in Miner (HD Address 1 if that is what you mine as)</span></div>
+      <div class="tp-row"><span class="tp-muted">Maturity</span><span>20 confirmations before coinbase can be spent</span></div>
+      <div class="tp-row"><span class="tp-muted">Wallet UI</span><span>Shows spendable first; total includes immature coinbase</span></div>
+      <p class="tp-muted" style="margin-top:.65rem">Unlock the same vault/address the miner is using. A different HD index will show 0 even while blocks are landing on the other address.</p>
+    </div>
+
+    <div class="tp-card">
+      <h3>Seed RPC <span class="tp-badge" id="tpLiveBadge">live</span></h3>
+      <p class="tp-muted">Wallet and solo / AI use seed RPC. Miner pool mode uses the HTTPS mine target above.</p>
+      <div class="tp-row"><span class="tp-muted">Public</span><span class="tp-mono" id="tpRpcPublic">http://seednode.hashmonkeys.cloud:18080</span></div>
+      <div class="tp-row"><span class="tp-muted">P2P seed</span><span class="tp-mono">seednode.hashmonkeys.cloud:39001</span></div>
+      <pre class="tp-mono" id="tpMinerCmd" style="margin-top:.75rem"></pre>
+    </div>
+
+    <div class="tp-card">
+      <h3>What earns what</h3>
+      <div class="tp-row"><span class="tp-muted">45% Fusion seal</span><span>CPU rematch on the live tip</span></div>
+      <div class="tp-row"><span class="tp-muted">45% GPU work</span><span>Pad mix on the sealed Fusion job</span></div>
+      <div class="tp-row"><span class="tp-muted">10% nodes</span><span>Attested useful work (idle = 0)</span></div>
+      <div class="tp-row"><span class="tp-muted">Maturity</span><span>20 confirmations before coinbase can be spent</span></div>
+      <p class="tp-muted" style="margin-top:.65rem">Tick CPU and a GPU. The finder keeps 45 MESH. 5 MESH is the node pot (0 if no attested useful work). Spend after 20 confirms.</p>
+      <div class="tp-actions">
+        <a href="testnet-explorer.html">Open explorer</a>
+      </div>
+    </div>
+
+    <div class="tp-card">
+      <h3>Rewards this block</h3>
+      <div id="tpTiers" class="tp-muted">Loading…</div>
+    </div>
+
+    <div class="tp-card">
+      <h3>Immune exam tape</h3>
+      <div id="tpExam" class="tp-muted">Loading…</div>
+    </div>
+
+    <footer class="mh-foot"><p>© 2026 Hashmonkeys · MonkeyMesh testnet · <span class="tp-muted">Data from seed via /testnet-api</span></p></footer>
+  </div>
+
+  <script src="config.js?v=65"></script>
+  <script src="config.local.js" onerror=""></script>
+  <script src="js/core.js?v=57"></script>
+  <script src="js/testnet-pool.js?v=16"></script>
+</body>
+</html>

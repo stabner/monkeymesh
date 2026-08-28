@@ -1,0 +1,25 @@
+﻿{
+  "network": "mesh-public-testnet",
+  "status": "public-testnet",
+  "note": "Public endpoints only. Operator LAN peers are not part of the published genesis.",
+  "frozen_at_utc": "2026-08-08T10:34:13.1665003Z",
+  "genesis": "63d073e87981fdcd2e7457692e8f3f2662c8058ec70054327840bb84c6b668d5",
+  "height": 37110,
+  "tip": "1c36b82ef4c840675976f781cfea2d480c60df3136ee9c85cafa459b26ceb098",
+  "meshhash_v2": {
+    "activation_height": 53000,
+    "env": "MESH_POW_V2_HEIGHT",
+    "scratchpad_mib": 32,
+    "mix_rounds": 131072,
+    "extra": "reverse data-dependent mix pass",
+    "note": "Raised above the live tip so existing Fusion blocks stay valid. Upgrade before height 53000."
+  },
+  "hosts": {
+    "seed_rpc": "http://seednode.hashmonkeys.cloud:18080",
+    "edge_rpc": "http://seednode.hashmonkeys.cloud:18081",
+    "seed_p2p": "seednode.hashmonkeys.cloud:39001",
+    "pool": "https://eu.hashmonkeys.cloud"
+  },
+  "wipe_policy": "Public tip wipe requires MESH_ALLOW_WIPE=1 and an explicit confirm string on the operator deploy script.",
+  "soft_ai_policy": "Soft knobs only — never BPS, subsidy, fork choice, or block validity from AI"
+}

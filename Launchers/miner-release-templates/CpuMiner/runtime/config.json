@@ -1,0 +1,6 @@
+{
+  "rpc": "http://seednode.hashmonkeys.cloud:18081,http://seednode.hashmonkeys.cloud:18080",
+  "address": "",
+  "blocks": 0,
+  "max_nonces": 5000000
+}

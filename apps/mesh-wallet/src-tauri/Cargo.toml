@@ -1,0 +1,27 @@
+[package]
+name = "mesh-wallet"
+version = "0.1.0"
+description = "MonkeyMesh desktop wallet (Tauri)"
+authors = ["MonkeyMesh"]
+edition = "2021"
+license = "MIT"
+
+[lib]
+name = "mesh_wallet_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+hex = "0.4"
+bincode = "1"
+ureq = { version = "2", features = ["json"] }
+mesh-types = { path = "../../../crates/mesh-types" }
+mesh-crypto = { path = "../../../crates/mesh-crypto" }
+mesh-chain = { path = "../../../crates/mesh-chain" }

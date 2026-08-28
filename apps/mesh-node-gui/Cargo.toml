@@ -1,0 +1,25 @@
+[package]
+name = "mesh-node-gui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "MonkeyMesh node desktop GUI"
+
+[[bin]]
+name = "mesh-node-gui"
+path = "src/main.rs"
+
+[dependencies]
+chrono = { workspace = true }
+anyhow = { workspace = true }
+mesh-types = { workspace = true }
+mesh-crypto = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+eframe = { version = "0.31", default-features = true, features = ["default_fonts", "glow"] }
+egui = "0.31"
+open = "5"
+ureq = { version = "2", features = ["json"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+rfd = "0.15"

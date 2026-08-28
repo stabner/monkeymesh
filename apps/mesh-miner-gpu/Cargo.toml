@@ -1,0 +1,42 @@
+[package]
+name = "mesh-miner-gpu"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "MonkeyMesh all-in-one miner (NVIDIA CUDA / AMD OpenCL / CPU, multi-device)"
+
+[lib]
+name = "mesh_miner_gpu"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mesh-miner-gpu"
+path = "src/main.rs"
+
+[[bin]]
+name = "mesh-miner-gpu-gui"
+path = "src/gui_main.rs"
+
+[dependencies]
+mesh-types = { workspace = true }
+mesh-crypto = { workspace = true }
+mesh-ai = { workspace = true }
+mesh-ai-v2 = { workspace = true }
+meshhash-cpu = { workspace = true }
+chrono = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+ureq = { version = "2", features = ["json"] }
+bincode = { workspace = true }
+ctrlc = "3"
+eframe = { version = "0.31", default-features = true, features = ["default_fonts", "glow"] }
+egui = "0.31"
+open = "5"
+libloading = "0.8"
+image = { version = "0.25", default-features = false, features = ["png"] }

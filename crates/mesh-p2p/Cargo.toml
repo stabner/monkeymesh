@@ -1,0 +1,27 @@
+[package]
+name = "mesh-p2p"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "MonkeyMesh P2P: libp2p + QUIC (HELLO/TX/BLOCK sync)"
+
+[dependencies]
+mesh-types = { workspace = true }
+mesh-chain = { workspace = true }
+serde = { workspace = true }
+bincode = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+futures = "0.3"
+async-trait = "0.1"
+libp2p = { version = "0.56", features = [
+    "quic",
+    "tokio",
+    "gossipsub",
+    "request-response",
+    "identify",
+    "ping",
+    "macros",
+] }

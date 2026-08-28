@@ -1,0 +1,55 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/mesh-types",
+    "crates/mesh-crypto",
+    "crates/meshhash-cpu",
+    "crates/mesh-chain",
+    "crates/mesh-p2p",
+    "crates/mesh-rpc",
+    "crates/mesh-ai",
+    "crates/mesh-ai-v2",
+    "apps/mesh-miner-cpu",
+    "apps/mesh-miner-gpu",
+    "apps/mesh-node",
+    "apps/mesh-node-gui",
+    "apps/mesh-orchestrator",
+    "apps/mesh-gpu-worker",
+    "apps/mesh-pool",
+    "apps/mesh-wallet-cli",
+    "apps/mesh-wallet-gui",
+    "apps/mesh-wallet/src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["MonkeyMesh"]
+repository = "https://github.com/stabner/monkeymesh"
+
+[workspace.dependencies]
+mesh-types = { path = "crates/mesh-types" }
+mesh-crypto = { path = "crates/mesh-crypto" }
+meshhash-cpu = { path = "crates/meshhash-cpu" }
+mesh-chain = { path = "crates/mesh-chain" }
+mesh-p2p = { path = "crates/mesh-p2p" }
+mesh-rpc = { path = "crates/mesh-rpc" }
+mesh-ai = { path = "crates/mesh-ai" }
+mesh-ai-v2 = { path = "crates/mesh-ai-v2" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+blake3 = "1"
+hex = "0.4"
+thiserror = "2"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+ed25519-dalek = { version = "2", features = ["rand_core", "serde"] }
+rand = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time"] }
+bincode = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

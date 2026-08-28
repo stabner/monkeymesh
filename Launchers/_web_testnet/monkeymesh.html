@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="description" content="MonkeyMesh (MESH) — a home-PC coin. Fusion MeshHash coordinates CPU and GPU to find one block together. Public testnet." />
+  <title>MonkeyMesh · MESH home-PC coin</title>
+  <script>try{var t=localStorage.getItem("mh.theme");if(t==="cyberspace")t="aurora";document.documentElement.setAttribute("data-theme",t||"aurora")}catch(e){document.documentElement.setAttribute("data-theme","aurora")}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Exo+2:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Syne:wght@500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css?v=112" />
+  <link rel="stylesheet" href="css/themes/cyberspace-fx.css?v=5" />
+  <link rel="stylesheet" href="css/themes/cyberspace.css?v=4" />
+  <link rel="stylesheet" href="css/mobile.css?v=3" />
+  <style>
+    :root {
+      --mm-ink: #071018;
+      --mm-cyan: #5ee7ff;
+      --mm-teal: #2dd4bf;
+      --mm-fog: #9fb3c8;
+      --mm-line: rgba(94, 231, 255, 0.18);
+    }
+    .mm-page { position: relative; z-index: 1; }
+    .mm-hero {
+      min-height: min(92vh, 820px);
+      display: grid;
+      align-content: end;
+      padding: 6rem 0 3.5rem;
+      background:
+        radial-gradient(ellipse 90% 70% at 80% 10%, rgba(46, 212, 191, 0.16), transparent 55%),
+        radial-gradient(ellipse 70% 60% at 12% 80%, rgba(94, 231, 255, 0.12), transparent 50%),
+        linear-gradient(180deg, transparent 40%, rgba(7, 16, 24, 0.85) 100%);
+    }
+    .mm-hero .brand-word {
+      font-family: "Syne", "Space Grotesk", sans-serif;
+      font-weight: 800;
+      font-size: clamp(3.2rem, 9vw, 6.5rem);
+      letter-spacing: -0.03em;
+      line-height: 0.92;
+      color: #e8f7ff;
+      margin: 0 0 1rem;
+      text-wrap: balance;
+      animation: mmRise 0.9s ease-out both;
+    }
+    .mm-hero .hero-lead {
+      max-width: 34rem;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.1rem;
+      color: var(--mm-fog);
+      animation: mmRise 0.9s 0.12s ease-out both;
+    }
+    .mm-cta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1.75rem;
+      animation: mmRise 0.9s 0.22s ease-out both;
+    }
+    .mm-cta a {
+      font-family: "Exo 2", sans-serif;
+      font-weight: 600;
+      font-size: 0.92rem;
+      text-decoration: none;
+      padding: 0.7rem 1.2rem;
+      border: 1px solid var(--mm-cyan);
+      color: var(--mm-cyan);
+      transition: background 0.2s, color 0.2s, transform 0.2s;
+    }
+    .mm-cta a:hover { background: var(--mm-cyan); color: var(--mm-ink); transform: translateY(-1px); }
+    .mm-cta a.primary { background: var(--mm-cyan); color: var(--mm-ink); }
+    .mm-cta a.primary:hover { filter: brightness(1.08); }
+
+    .mm-section {
+      padding: 4.5rem 0 1rem;
+      border-top: 1px solid var(--mm-line);
+    }
+    .mm-section h2 {
+      font-family: "Syne", sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      margin: 0 0 0.6rem;
+      color: #eef8ff;
+    }
+    .mm-section .mm-sub {
+      max-width: 40rem;
+      color: var(--mm-fog);
+      font-family: "Space Grotesk", sans-serif;
+      margin: 0 0 2rem;
+      line-height: 1.55;
+    }
+    .mm-markets {
+      display: grid;
+      gap: 1.5rem;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    @media (max-width: 860px) {
+      .mm-markets { grid-template-columns: 1fr; }
+    }
+    .mm-market {
+      padding: 0.25rem 0 0.5rem;
+      border-left: 2px solid var(--mm-teal);
+      padding-left: 1rem;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: mmRise 0.7s ease-out forwards;
+    }
+    .mm-market:nth-child(2) { animation-delay: 0.1s; border-color: var(--mm-cyan); }
+    .mm-market:nth-child(3) { animation-delay: 0.2s; border-color: #7dd3fc; }
+    .mm-market .pct {
+      font-family: "Bebas Neue", sans-serif;
+      font-size: 2.4rem;
+      letter-spacing: 0.04em;
+      color: var(--mm-cyan);
+      line-height: 1;
+    }
+    .mm-market h3 {
+      font-family: "Exo 2", sans-serif;
+      font-size: 1.05rem;
+      margin: 0.35rem 0 0.4rem;
+      color: #e8f4ff;
+    }
+    .mm-market p {
+      margin: 0;
+      color: var(--mm-fog);
+      font-size: 0.92rem;
+      line-height: 1.5;
+      font-family: "Space Grotesk", sans-serif;
+    }
+
+    .mm-spec-list {
+      display: grid;
+      gap: 0;
+      max-width: 44rem;
+    }
+    .mm-spec-list div {
+      display: grid;
+      grid-template-columns: 10rem 1fr;
+      gap: 1rem;
+      padding: 0.85rem 0;
+      border-bottom: 1px solid var(--mm-line);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 0.95rem;
+    }
+    @media (max-width: 560px) {
+      .mm-spec-list div { grid-template-columns: 1fr; gap: 0.25rem; }
+    }
+    .mm-spec-list dt { color: var(--mm-fog); margin: 0; }
+    .mm-spec-list dd { margin: 0; color: #e8f4ff; }
+    .mm-supply {
+      width: 100%;
+      max-width: 44rem;
+      border-collapse: collapse;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 0.95rem;
+    }
+    .mm-supply th, .mm-supply td {
+      text-align: left;
+      padding: 0.7rem 0.85rem 0.7rem 0;
+      border-bottom: 1px solid var(--mm-line);
+    }
+    .mm-supply th { color: var(--mm-fog); font-weight: 600; }
+    .mm-supply td { color: #e8f4ff; }
+    .mm-supply td:nth-child(2), .mm-supply td:nth-child(3),
+    .mm-supply th:nth-child(2), .mm-supply th:nth-child(3) { text-align: right; }
+
+    .mm-road-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .mm-road-head .mm-sub { margin: 0; max-width: 36rem; }
+    .mm-road-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+    }
+    .mm-road-controls button {
+      font-family: "Exo 2", sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--mm-cyan);
+      background: transparent;
+      border: 1px solid var(--mm-line);
+      padding: 0.45rem 0.7rem;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+    .mm-road-controls button:hover:not(:disabled) {
+      border-color: var(--mm-cyan);
+      background: rgba(94, 231, 255, 0.08);
+    }
+    .mm-road-controls button:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+    .mm-road-hint {
+      font-family: "Exo 2", sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--mm-fog);
+      white-space: nowrap;
+    }
+    .mm-road-wrap {
+      position: relative;
+      margin: 0 -1.25rem;
+      padding: 0.25rem 0 0.5rem;
+    }
+    .mm-road-wrap::before,
+    .mm-road-wrap::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0.5rem;
+      width: 2.5rem;
+      z-index: 2;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .mm-road-wrap::before {
+      left: 0;
+      background: linear-gradient(90deg, rgba(7, 16, 24, 0.95), transparent);
+    }
+    .mm-road-wrap::after {
+      right: 0;
+      background: linear-gradient(270deg, rgba(7, 16, 24, 0.95), transparent);
+    }
+    .mm-road-wrap[data-at="start"]::before { opacity: 0; }
+    .mm-road-wrap[data-at="end"]::after { opacity: 0; }
+    .mm-road-wrap[data-at="both"]::before,
+    .mm-road-wrap[data-at="both"]::after { opacity: 0; }
+    .mm-road-scroll {
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      padding: 1.1rem 1.25rem 1.4rem;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(94, 231, 255, 0.45) transparent;
+      cursor: grab;
+    }
+    .mm-road-scroll:active { cursor: grabbing; }
+    .mm-road-scroll::-webkit-scrollbar { height: 6px; }
+    .mm-road-scroll::-webkit-scrollbar-thumb {
+      background: rgba(94, 231, 255, 0.35);
+    }
+    .mm-road-track {
+      position: relative;
+      display: flex;
+      gap: 1rem;
+      width: max-content;
+      padding-top: 0.85rem;
+    }
+    .mm-road-track::before {
+      content: "";
+      position: absolute;
+      left: 0.9rem;
+      right: 0.9rem;
+      top: 0.2rem;
+      height: 1px;
+      background: linear-gradient(
+        90deg,
+        var(--mm-teal),
+        var(--mm-cyan) 42%,
+        rgba(159, 179, 200, 0.35) 72%,
+        transparent
+      );
+    }
+    .mm-road article {
+      position: relative;
+      flex: 0 0 min(17.5rem, 78vw);
+      scroll-snap-align: start;
+      padding: 1.15rem 0 0;
+      border-top: none;
+      opacity: 0;
+      animation: mmRise 0.65s ease-out forwards;
+    }
+    .mm-road article::before {
+      content: "";
+      position: absolute;
+      left: 0.15rem;
+      top: -0.12rem;
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 50%;
+      background: var(--mm-cyan);
+      box-shadow: 0 0 0 3px rgba(94, 231, 255, 0.18);
+    }
+    .mm-road article[data-state="done"]::before { background: var(--mm-teal); box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.18); }
+    .mm-road article[data-state="next"]::before {
+      background: transparent;
+      border: 2px solid var(--mm-fog);
+      box-shadow: none;
+      width: 0.45rem;
+      height: 0.45rem;
+    }
+    .mm-road article[data-state="later"]::before {
+      background: transparent;
+      border: 1px dashed rgba(159, 179, 200, 0.55);
+      box-shadow: none;
+      width: 0.45rem;
+      height: 0.45rem;
+    }
+    .mm-road .mm-era {
+      display: block;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
+      color: rgba(159, 179, 200, 0.75);
+      margin-bottom: 0.35rem;
+    }
+    .mm-road h3 {
+      font-family: "Exo 2", sans-serif;
+      font-size: 1rem;
+      margin: 0 0 0.4rem;
+      color: #eef8ff;
+      line-height: 1.3;
+    }
+    .mm-road p {
+      margin: 0;
+      color: var(--mm-fog);
+      font-size: 0.88rem;
+      line-height: 1.5;
+      font-family: "Space Grotesk", sans-serif;
+    }
+    .mm-pill {
+      display: inline-block;
+      font-family: "Exo 2", sans-serif;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--mm-teal);
+      margin-right: 0.4rem;
+    }
+    .mm-road article[data-state="active"] .mm-pill { color: var(--mm-cyan); }
+    .mm-road article[data-state="next"] .mm-pill,
+    .mm-road article[data-state="later"] .mm-pill { color: var(--mm-fog); }
+    @media (max-width: 700px) {
+      .mm-road-wrap { margin: 0 -0.75rem; }
+      .mm-road-hint { display: none; }
+    }
+
+    .mm-mine {
+      margin: 2rem 0 4rem;
+      padding: 1.5rem 0 0;
+      border-top: 1px solid var(--mm-line);
+    }
+    .mm-mono {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.82rem;
+      word-break: break-all;
+      color: var(--mm-cyan);
+      background: rgba(0, 0, 0, 0.35);
+      padding: 0.65rem 0.8rem;
+      border: 1px solid var(--mm-line);
+      display: block;
+      margin: 0.75rem 0 1rem;
+    }
+    .mm-live {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      margin: 1rem 0 0.5rem;
+    }
+    .mm-live > div {
+      padding: 0.65rem 0;
+      border-bottom: 1px solid var(--mm-line);
+    }
+    .mm-live .label {
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--mm-fog);
+      font-family: "Exo 2", sans-serif;
+    }
+    .mm-live .value {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 1.05rem;
+      color: var(--mm-cyan);
+      margin-top: 0.25rem;
+    }
+    .mm-muted { color: var(--mm-fog); font-size: 0.88rem; font-family: "Space Grotesk", sans-serif; }
+    .mm-err { color: #f87171; }
+
+    @keyframes mmRise {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="mhStarfield" class="mh-starfield" aria-hidden="true"></canvas>
+  <div class="mh-vignette" aria-hidden="true"></div>
+  <div class="mh-scanlines" aria-hidden="true"></div>
+  <div class="mh-bg" aria-hidden="true"></div>
+  <div class="mh-grid" aria-hidden="true"></div>
+
+  <div class="wrap mm-page">
+    <nav class="mh-nav">
+      <div class="mh-nav__start">
+        <a class="brand-mark brand-mark--logo-only" href="index.html" aria-label="Hashmonkeys — home">
+          <img class="brand-mark__logo" data-mh-logo alt="" width="256" height="256" decoding="async" hidden />
+        </a>
+        <div class="nav-links">
+          <a href="index.html">Pools</a>
+          <a href="blocks.html">Blocks</a>
+          <a href="dashboard.html">Dashboard</a>
+          <a href="monkeymesh.html" aria-current="page">MonkeyMesh</a>
+          <a href="testnet-explorer.html">Testnet</a>
+          <a href="calculator.html">Calculator</a>
+          <a href="monkeyos.html">MonkeyOS</a>
+        </div>
+      </div>
+      <div class="mh-nav__end"></div>
+    </nav>
+
+    <header class="mm-hero">
+      <p class="hero-kicker" style="animation: mmRise 0.7s ease-out both">MonkeyMesh (MESH) · public testnet</p>
+      <h1 class="brand-word">MonkeyMesh</h1>
+      <p class="hero-lead">Mine MESH on a home PC. Designed for ordinary hardware. Fusion MeshHash coordinates your CPU and GPU so they find one block together. Each find pays 45 MESH to your wallet and 5 MESH to nodes.</p>
+      <div class="mm-cta">
+        <a class="primary" href="#mine">Mine the testnet</a>
+        <a href="testnet-explorer.html">Open explorer</a>
+        <a href="#roadmap">View roadmap</a>
+      </div>
+    </header>
+
+    <section class="mm-section" id="design">
+      <h2>How a block is found</h2>
+      <p class="mm-sub">One Fusion solution. GPU does the wave. CPU seals that ticket. They fuse into one block. The same finder gets 45% Fusion seal + 45% GPU work (45 MESH). Nodes get 10%. Official miners refuse CPU-only after height 29,000.</p>
+      <div class="mm-markets">
+        <div class="mm-market">
+          <div class="pct">45%</div>
+          <h3>Fusion seal</h3>
+          <p>22.5 MESH to the finder. CPU rematch of the bound digest. A GPU farm cannot skip this and still produce a valid block.</p>
+        </div>
+        <div class="mm-market">
+          <div class="pct">45%</div>
+          <h3>GPU work</h3>
+          <p>22.5 MESH to the same finder. Bandwidth-hard Fusion wave on the same pad. A CPU-only botnet cannot skip this either.</p>
+        </div>
+        <div class="mm-market">
+          <div class="pct">10%</div>
+          <h3>Network nodes</h3>
+          <p>5 MESH per block, only for attested useful work (relay, routing, snapshots). Idle nodes earn nothing.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="mm-section" id="chain">
+      <h2>Chain facts</h2>
+      <p class="mm-sub">Public testnet. Not a compute rental marketplace. Coinbase pays the miner wallet in the template — not a pool treasury.</p>
+      <dl class="mm-spec-list">
+        <div><dt>Ticker</dt><dd>MESH</dd></div>
+        <div><dt>Consensus</dt><dd>Fusion MeshHash — CPU + GPU, one digest</dd></div>
+        <div><dt>Block time</dt><dd>~5 seconds</dd></div>
+        <div><dt>Block reward</dt><dd>50 MESH (45 miner + 5 nodes)</dd></div>
+        <div><dt>Locked split</dt><dd>45% Fusion seal / 45% GPU work / 10% nodes from height 1</dd></div>
+        <div><dt>Max supply</dt><dd>2,522,880,000 MESH (enforced)</dd></div>
+        <div><dt>Maturity</dt><dd>20 confirmations before coinbase spends</dd></div>
+        <div><dt>Mine target</dt><dd>https://eu.hashmonkeys.cloud</dd></div>
+        <div><dt>Clients</dt><dd>Windows / Ubuntu — Miner, Node, Wallet</dd></div>
+      </dl>
+    </section>
+
+    <section class="mm-section" id="supply">
+      <h2>Supply schedule</h2>
+      <p class="mm-sub">Fair launch. No premine, no ICO, no founder allocation. 50 MESH every ~5 seconds, halved every 4 years. The cap is the lifetime of that series — 2.52288 billion MESH. Live emitted and remaining are on the <a href="testnet-explorer.html">explorer</a>.</p>
+      <table class="mm-supply">
+        <thead>
+          <tr><th>Era</th><th>Reward</th><th>Supply added</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Years 0–4</td><td>50 MESH</td><td>1,261,440,000</td></tr>
+          <tr><td>Years 4–8</td><td>25 MESH</td><td>630,720,000</td></tr>
+          <tr><td>Years 8–12</td><td>12.5 MESH</td><td>315,360,000</td></tr>
+          <tr><td>Years 12–16</td><td>6.25 MESH</td><td>157,680,000</td></tr>
+          <tr><td>Years 16+</td><td>Halves again</td><td>→ 2,522,880,000</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="mm-section" id="roadmap">
+      <h2>Roadmap</h2>
+      <div class="mm-road-head">
+        <p class="mm-sub">Prove the chain, launch mainnet, then grow miners, nodes, and markets. No internal ops notes — this is the public path.</p>
+        <div class="mm-road-controls">
+          <span class="mm-road-hint" aria-hidden="true">Drag / scroll →</span>
+          <button type="button" id="mmRoadPrev" aria-label="Previous roadmap items">←</button>
+          <button type="button" id="mmRoadNext" aria-label="Next roadmap items">→</button>
+        </div>
+      </div>
+      <div class="mm-road-wrap" id="mmRoadWrap" data-at="start">
+        <div class="mm-road-scroll" id="mmRoadScroll" tabindex="0" role="region" aria-label="MonkeyMesh roadmap timeline">
+          <div class="mm-road mm-road-track">
+            <article data-state="done" style="animation-delay:0.04s">
+              <span class="mm-era">1 · Foundation</span>
+              <h3><span class="mm-pill">Done</span> Home-PC Fusion</h3>
+              <p>CPU + GPU find one block. Locked 45 / 45 / 10. Desktop miner, wallet, HTTPS pool, and public explorer.</p>
+            </article>
+            <article data-state="active" style="animation-delay:0.08s">
+              <span class="mm-era">2 · Now</span>
+              <h3><span class="mm-pill">Live</span> Public testnet</h3>
+              <p>Open mining. Coinbase pays your wallet. Docs a visitor can read. This is the proving ground — not tradable mainnet yet.</p>
+            </article>
+            <article data-state="next" style="animation-delay:0.12s">
+              <span class="mm-era">3 · Next</span>
+              <h3><span class="mm-pill">Next</span> Harden the network</h3>
+              <p>More independent public nodes, stronger finality, external security review, signed releases, and a bug bounty.</p>
+            </article>
+            <article data-state="later" style="animation-delay:0.16s">
+              <span class="mm-era">4 · Planned</span>
+              <h3><span class="mm-pill">Ahead</span> Mainnet launch</h3>
+              <p>Public genesis, production miner / node / wallet, and a frozen emission schedule — only after harden is done.</p>
+            </article>
+            <article data-state="later" style="animation-delay:0.2s">
+              <span class="mm-era">5 · Planned</span>
+              <h3><span class="mm-pill">Ahead</span> Markets and listings</h3>
+              <p>DEX pairs, CEX applications, and market-data pages after mainnet is live and stable.</p>
+            </article>
+            <article data-state="later" style="animation-delay:0.24s">
+              <span class="mm-era">6 · Planned</span>
+              <h3><span class="mm-pill">Ahead</span> Grow the network</h3>
+              <p>More pools and regions, mining guides, wallets and integrations. Not a GPU rental marketplace.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mm-section mm-mine" id="mine">
+      <h2>Mine on testnet</h2>
+      <p class="mm-sub">Use MonkeyMesh Miner. Tick CPU and a GPU. Paste your <code>mesh01…</code> address. Point the pool field at the HTTPS URL below. Each find pays 45 MESH to that wallet and 5 MESH to nodes. Spend after 20 confirms.</p>
+      <p class="mm-muted" id="mpStatus">Connecting to pool…</p>
+      <div class="mm-live" id="mpStats"></div>
+      <span class="mm-mono" id="mpPoolUrl">https://eu.hashmonkeys.cloud</span>
+      <pre class="mm-mono" style="margin-top:0">"rpc": "https://eu.hashmonkeys.cloud"</pre>
+      <div class="mm-cta">
+        <a class="primary" href="testnet-explorer.html">Testnet explorer</a>
+        <a href="dashboard.html">Miner dashboard</a>
+        <a href="calculator.html">Earnings calculator</a>
+      </div>
+      <p class="mm-muted" style="margin-top:1rem">Optional AI exams are rematched extra checks. They do not find the block and cannot change the 45 / 45 / 10 split.</p>
+      <p class="mm-muted" style="margin-top:1.25rem">Recent pool finds</p>
+      <div id="mpCredits" class="mm-muted">Loading…</div>
+    </section>
+
+    <footer class="mh-foot">
+      <p>© 2026 Hashmonkeys · MonkeyMesh testnet · MESH has no mainnet fiat value yet</p>
+    </footer>
+  </div>
+
+  <script src="config.js?v=67"></script>
+  <script src="config.local.js" onerror=""></script>
+  <script src="js/core.js?v=59"></script>
+  <script src="js/mesh-pool.js?v=3"></script>
+  <script>
+    (function () {
+      const scroller = document.getElementById("mmRoadScroll");
+      const wrap = document.getElementById("mmRoadWrap");
+      const prev = document.getElementById("mmRoadPrev");
+      const next = document.getElementById("mmRoadNext");
+      if (!scroller || !wrap || !prev || !next) return;
+
+      function step() {
+        const card = scroller.querySelector("article");
+        return card ? card.getBoundingClientRect().width + 16 : Math.min(280, scroller.clientWidth * 0.8);
+      }
+
+      function sync() {
+        const max = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+        const x = scroller.scrollLeft;
+        const atStart = x <= 4;
+        const atEnd = x >= max - 4;
+        prev.disabled = atStart;
+        next.disabled = atEnd;
+        wrap.dataset.at = atStart && atEnd ? "both" : atStart ? "start" : atEnd ? "end" : "mid";
+      }
+
+      prev.addEventListener("click", () => scroller.scrollBy({ left: -step(), behavior: "smooth" }));
+      next.addEventListener("click", () => scroller.scrollBy({ left: step(), behavior: "smooth" }));
+      scroller.addEventListener("scroll", sync, { passive: true });
+      window.addEventListener("resize", sync);
+
+      scroller.addEventListener(
+        "wheel",
+        (e) => {
+          if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+          const max = scroller.scrollWidth - scroller.clientWidth;
+          if (max <= 0) return;
+          const nextX = scroller.scrollLeft + e.deltaY;
+          if ((e.deltaY > 0 && scroller.scrollLeft < max) || (e.deltaY < 0 && scroller.scrollLeft > 0)) {
+            e.preventDefault();
+            scroller.scrollLeft = Math.max(0, Math.min(max, nextX));
+          }
+        },
+        { passive: false }
+      );
+
+      let drag = false;
+      let startX = 0;
+      let startLeft = 0;
+      scroller.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        drag = true;
+        startX = e.clientX;
+        startLeft = scroller.scrollLeft;
+        scroller.setPointerCapture(e.pointerId);
+      });
+      scroller.addEventListener("pointermove", (e) => {
+        if (!drag) return;
+        scroller.scrollLeft = startLeft - (e.clientX - startX);
+      });
+      scroller.addEventListener("pointerup", () => { drag = false; });
+      scroller.addEventListener("pointercancel", () => { drag = false; });
+
+      sync();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+﻿MonkeyMesh CPU Miner (Ubuntu)
+Generated: 2026-08-22T08:09:30.0132321+02:00
+
+Keep everything in this folder together (portable pack).
+
+Required:
+  - mesh-miner-cpu
+  - start-cpu-miner.sh
+  - config.json

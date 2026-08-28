@@ -1,0 +1,9 @@
+MonkeyMesh GPU Miner (Ubuntu)
+Generated: 2026-08-15
+
+Keep everything in this folder together (portable pack).
+
+Required:
+  - mesh-miner-gpu
+  - start-gpu-miner.sh
+  - config.json

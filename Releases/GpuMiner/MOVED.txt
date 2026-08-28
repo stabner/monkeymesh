@@ -1,0 +1,8 @@
+﻿This pack moved to:
+
+  Releases\Windows\GpuMiner\
+
+Run staging:
+  .\Launchers\stage-platform-releases.ps1
+
+Or open the Windows folder directly.

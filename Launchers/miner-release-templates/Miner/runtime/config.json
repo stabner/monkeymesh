@@ -1,0 +1,9 @@
+{
+  "rpc": "https://eu.hashmonkeys.cloud",
+  "address": "",
+  "worker_name": "",
+  "batch": 0,
+  "max_nonces": 5000000,
+  "selected": [],
+  "ai_research": true
+}

@@ -1,0 +1,22 @@
+[package]
+name = "mesh-wallet-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "MonkeyMesh CLI wallet (RPC client + offline mode)"
+
+[[bin]]
+name = "mesh-wallet-cli"
+path = "src/main.rs"
+
+[dependencies]
+mesh-types = { workspace = true }
+mesh-crypto = { workspace = true }
+mesh-chain = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+bincode = { workspace = true }
+ureq = { version = "2", features = ["json"] }

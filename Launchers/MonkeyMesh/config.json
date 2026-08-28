@@ -1,0 +1,4 @@
+{
+  "rpc": "http://seednode.hashmonkeys.cloud:18080,http://seednode.hashmonkeys.cloud:18081",
+  "wallet_vault": "data/wallet.vault.json"
+}

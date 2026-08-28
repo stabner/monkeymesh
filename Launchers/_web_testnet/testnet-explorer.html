@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <title>Hashmonkeys · MonkeyMesh testnet explorer</title>
+  <script>try{var t=localStorage.getItem("mh.theme");if(t==="cyberspace")t="aurora";document.documentElement.setAttribute("data-theme",t||"aurora")}catch(e){document.documentElement.setAttribute("data-theme","aurora")}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css?v=100" />
+  <link rel="stylesheet" href="css/themes/cyberspace-fx.css?v=5" />
+  <link rel="stylesheet" href="css/themes/cyberspace.css?v=4" />
+  <link rel="stylesheet" href="css/themes/obsidian-fx.css?v=2" />
+  <link rel="stylesheet" href="css/themes/obsidian.css?v=3" />
+  <link rel="stylesheet" href="css/testnet-explorer.css?v=17" />
+  <link rel="stylesheet" href="css/testnet-explorer-mesh.css?v=11" />
+</head>
+<body>
+  <canvas id="mhStarfield" class="mh-starfield" aria-hidden="true"></canvas>
+  <div class="mh-vignette" aria-hidden="true"></div>
+  <div class="mh-scanlines" aria-hidden="true"></div>
+  <div class="mh-bg" aria-hidden="true"></div>
+  <div class="mh-grid" aria-hidden="true"></div>
+
+  <div class="wrap">
+    <nav class="mh-nav">
+      <div class="mh-nav__start">
+        <a class="brand-mark brand-mark--logo-only" href="index.html" aria-label="Hashmonkeys — home">
+          <img class="brand-mark__logo" data-mh-logo alt="" width="256" height="256" decoding="async" hidden />
+        </a>
+        <div class="nav-links">
+          <a href="index.html">Pools</a>
+          <a href="blocks.html">Blocks</a>
+          <a href="dashboard.html">Dashboard</a>
+          <a href="monkeymesh.html">MonkeyMesh</a>
+          <a href="testnet-explorer.html" aria-current="page">Testnet</a>
+          <a href="calculator.html">Calculator</a>
+        </div>
+      </div>
+    </nav>
+
+    <header class="hero hero--brand">
+      <div class="hero__copy">
+        <p class="hero-kicker">MonkeyMesh (MESH) · public testnet</p>
+        <h1>Mine MESH on a home PC</h1>
+        <p class="hero-lead"><strong>Designed for ordinary hardware.</strong> Fusion MeshHash coordinates your CPU and GPU so they find <strong>one block together</strong> — neither chip sits idle. Each find pays <strong>45 MESH</strong> to your wallet and <strong>5 MESH</strong> to nodes. Optional AI jobs are extra checks — they do not find the block, and they cannot change the pay split.</p>
+        <p class="tn-path" aria-hidden="true">Mine → Find a Fusion block → Get paid → Optional AI exams</p>
+        <p class="tn-docs">
+          <a href="#how">How it works</a>
+          <a href="#tokenomics">Tokenomics</a>
+          <a href="#roadmap">Roadmap</a>
+          <a href="dashboard.html">Miner dashboard</a>
+          <a href="calculator.html">Earnings calculator</a>
+          <a href="https://eu.hashmonkeys.cloud">Mine target</a>
+        </p>
+        <p class="tn-muted" id="tnStatus">Connecting to seed…</p>
+      </div>
+      <div id="tnHeroStats" class="hero-stats tn-hero-stats" hidden aria-hidden="true"></div>
+      <p class="tn-muted tn-hero-note">Network hashrate is not published yet. Last-block age, height, and miner count show whether the chain is moving. Per-rig H/s is on the dashboard.</p>
+    </header>
+
+    <nav class="scheme-toolbar tn-tabs" id="tnTabs" aria-label="Explorer sections">
+      <a href="#overview" data-page="overview" class="scheme-btn active">Overview</a>
+      <a href="#how" data-page="how">How it works</a>
+      <a href="#tokenomics" data-page="tokenomics">Tokenomics</a>
+      <a href="#roadmap" data-page="roadmap">Roadmap</a>
+      <a href="#adaptive" data-page="adaptive">AI</a>
+      <a href="#blocks" data-page="blocks">Blocks</a>
+      <a href="#txs" data-page="txs">Transactions</a>
+      <a href="#network" data-page="network">Network</a>
+    </nav>
+
+    <main id="tnRoot"></main>
+
+    <footer class="mh-foot"><p>© 2026 Hashmonkeys · MonkeyMesh testnet · <span class="tn-muted">Height is the mine tip (HTTPS pool). Seed archive via /testnet-api.</span></p></footer>
+  </div>
+
+  <svg width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="tnRingGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="var(--violet, #a78bfa)" />
+        <stop offset="100%" stop-color="var(--mint, #3effd0)" />
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <script src="config.js?v=65"></script>
+  <script src="config.local.js" onerror=""></script>
+  <script src="js/core.js?v=57"></script>
+  <script src="js/testnet-explorer.js?v=52"></script>
+</body>
+</html>

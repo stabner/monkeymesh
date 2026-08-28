@@ -1,0 +1,13 @@
+[package]
+name = "mesh-types"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Core MonkeyMesh types: hashes, amounts, blocks, transactions"
+
+[dependencies]
+serde = { workspace = true }
+blake3 = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }

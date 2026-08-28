@@ -1,0 +1,32 @@
+[package]
+name = "mesh-wallet-gui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "MonkeyMesh Windows all-in-one (wallet, Fusion mine, optional local node)"
+
+[[bin]]
+name = "mesh-wallet"
+path = "src/main.rs"
+
+[dependencies]
+chrono = { workspace = true }
+mesh-types = { workspace = true }
+mesh-crypto = { workspace = true }
+mesh-chain = { workspace = true }
+eframe = { version = "0.31", default-features = true, features = ["default_fonts", "glow"] }
+egui = "0.31"
+egui_extras = { version = "0.31", features = ["image"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+qrcode = "0.14"
+serde = { workspace = true }
+serde_json = { workspace = true }
+ureq = { version = "2", features = ["json"] }
+hex = { workspace = true }
+bincode = { workspace = true }
+anyhow = { workspace = true }
+rfd = "0.15"
+open = "5"
+mesh-miner-gpu = { path = "../mesh-miner-gpu" }
+meshhash-cpu = { workspace = true }

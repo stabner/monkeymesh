@@ -1,0 +1,15 @@
+﻿MonkeyMesh miner release pack
+Generated: 2026-08-23T19:38:42.3703490+02:00
+
+Required files in this folder:
+  - MonkeyMesh-Miner.exe
+  - mesh-miner-cli.exe
+  - Start-Miner.bat
+  - config.json
+  - cudart64_13.dll
+  - vcruntime140.dll
+  - vcruntime140_1.dll
+  - msvcp140.dll
+  - concrt140.dll
+
+This folder is portable. Keep these files together.

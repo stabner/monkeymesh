@@ -1,0 +1,16 @@
+﻿MonkeyMesh (Windows all-in-one)
+Generated: 2026-08-23T19:38:42.2320561+02:00
+
+Keep everything in this folder together (portable pack).
+
+Required:
+  - MonkeyMesh.exe
+  - mesh-node.exe
+  - mesh-wallet-cli.exe
+  - Start-MonkeyMesh.bat
+  - config.json
+  - vcruntime140.dll
+  - vcruntime140_1.dll
+  - msvcp140.dll
+  - concrt140.dll
+  - cudart64_13.dll

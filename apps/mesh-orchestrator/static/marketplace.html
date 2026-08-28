@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MonkeyMind Marketplace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #05070b;
+      --ink: #e8f7ff;
+      --muted: #7aa0b0;
+      --panel: rgba(8, 16, 24, 0.88);
+      --line: rgba(0, 232, 255, 0.22);
+      --cyan: #00e8ff;
+      --ok: #50d2aa;
+      --font-display: "Orbitron", sans-serif;
+      --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: var(--font-mono);
+      background:
+        radial-gradient(ellipse at 70% 10%, rgba(0,232,255,0.08), transparent 50%),
+        linear-gradient(180deg, #071018, var(--bg));
+    }
+    .shell { max-width: 720px; margin: 0 auto; padding: 2.5rem 1.25rem 3rem; }
+    h1 {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: clamp(1.6rem, 5vw, 2.4rem);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin: 0;
+    }
+    h1 span { color: var(--cyan); }
+    .tag { color: var(--muted); margin: 0.75rem 0 1.75rem; font-size: 0.9rem; max-width: 36rem; }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1.1rem 1.15rem 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    h2 {
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin: 0 0 0.9rem;
+    }
+    label { display: block; color: var(--muted); font-size: 0.75rem; margin: 0.65rem 0 0.3rem; }
+    select, textarea, input {
+      width: 100%;
+      background: #101820;
+      border: 1px solid var(--line);
+      color: var(--ink);
+      border-radius: 4px;
+      padding: 0.65rem 0.75rem;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+    }
+    textarea { min-height: 110px; resize: vertical; }
+    .row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; align-items: center; }
+    button {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 4px;
+      padding: 0.7rem 1.1rem;
+      cursor: pointer;
+      background: var(--cyan);
+      color: #041018;
+    }
+    button.ghost {
+      background: #101820;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .status { color: var(--muted); font-size: 0.8rem; }
+    .status.ok { color: var(--ok); }
+    .status.err { color: #ff6478; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    th, td { text-align: left; padding: 0.45rem 0.35rem; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 500; }
+    .mono { font-family: var(--font-mono); word-break: break-all; }
+    footer { margin-top: 1rem; color: var(--muted); font-size: 0.72rem; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <h1>Monkey<span>Mind</span></h1>
+    <p class="tag">Submit a job to the GPU market stub. Verified work credits the GPU 40% market and settles a small MESH payment from the node hot wallet to the worker.</p>
+
+    <section>
+      <h2>New job</h2>
+      <label for="service">Service</label>
+      <select id="service">
+        <option value="llm">LLM inference</option>
+        <option value="image">Image generation</option>
+        <option value="embeddings">Embeddings</option>
+        <option value="echo">Echo (dev)</option>
+      </select>
+      <label for="prompt">Prompt</label>
+      <textarea id="prompt" placeholder="Describe what you want…"></textarea>
+      <div class="row">
+        <button id="submit" type="button">Submit</button>
+        <button id="refresh" class="ghost" type="button">Refresh</button>
+        <span class="status" id="msg"></span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Recent jobs</h2>
+      <div id="jobs"><p class="status">Loading…</p></div>
+    </section>
+
+    <footer>
+      Orchestrator <span id="origin"></span> · need a worker:
+      <code>mesh-gpu-worker.exe --orch <span id="orchHint"></span></code>
+    </footer>
+  </div>
+  <script>
+    const origin = location.origin;
+    document.getElementById("origin").textContent = origin;
+    document.getElementById("orchHint").textContent = origin;
+
+    const msg = document.getElementById("msg");
+    function setMsg(text, cls) {
+      msg.textContent = text || "";
+      msg.className = "status" + (cls ? " " + cls : "");
+    }
+
+    async function jget(path) {
+      const r = await fetch(path);
+      if (!r.ok) throw new Error(path + " " + r.status);
+      return r.json();
+    }
+
+    function short(h) {
+      if (!h || h.length < 18) return h || "—";
+      return h.slice(0, 10) + "…" + h.slice(-6);
+    }
+
+    async function refreshJobs() {
+      const data = await jget("/v1/marketplace/jobs");
+      const jobs = data.jobs || [];
+      if (!jobs.length) {
+        document.getElementById("jobs").innerHTML = `<p class="status">No jobs yet.</p>`;
+        return;
+      }
+      document.getElementById("jobs").innerHTML = `
+        <table>
+          <thead><tr><th>Id</th><th>Service</th><th>Status</th><th>Settle</th><th>Output</th></tr></thead>
+          <tbody>
+            ${jobs.slice(0, 20).map(j => `
+              <tr>
+                <td class="mono">${j.id}</td>
+                <td>${j.service}</td>
+                <td>${j.status}</td>
+                <td class="mono" title="${j.settlement_txid || j.settlement_error || ''}">${j.settlement_status || '—'} ${j.settlement_amount ? '('+j.settlement_amount+')' : ''}</td>
+                <td class="mono" title="${j.output_hash || ""}">${short(j.output_hash)}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>`;
+    }
+
+    document.getElementById("refresh").onclick = () => {
+      refreshJobs().catch(e => setMsg(e.message, "err"));
+    };
+
+    document.getElementById("submit").onclick = async () => {
+      const service = document.getElementById("service").value;
+      const prompt = document.getElementById("prompt").value.trim();
+      if (!prompt) { setMsg("Enter a prompt", "err"); return; }
+      const btn = document.getElementById("submit");
+      btn.disabled = true;
+      setMsg("Submitting…");
+      try {
+        const r = await fetch("/v1/marketplace/jobs", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ service, prompt }),
+        });
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body || r.status);
+        setMsg("Queued " + (body.job && body.job.id), "ok");
+        await refreshJobs();
+      } catch (e) {
+        setMsg(String(e.message || e), "err");
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    refreshJobs().catch(e => setMsg(e.message, "err"));
+    setInterval(() => refreshJobs().catch(() => {}), 3000);
+  </script>
+</body>
+</html>

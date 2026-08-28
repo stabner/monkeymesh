@@ -1,0 +1,19 @@
+[package]
+name = "mesh-chain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "MonkeyMesh chain state, validation, and local mining"
+
+[dependencies]
+mesh-types = { workspace = true }
+mesh-crypto = { workspace = true }
+meshhash-cpu = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+bincode = { workspace = true }
+hex = { workspace = true }

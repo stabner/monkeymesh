@@ -1,0 +1,25 @@
+[package]
+name = "mesh-gpu-worker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "MonkeyMesh GPU AI worker — pulls orchestrator jobs (echo/benchmark)"
+
+[[bin]]
+name = "mesh-gpu-worker"
+path = "src/main.rs"
+
+[dependencies]
+mesh-ai = { workspace = true }
+mesh-ai-v2 = { workspace = true }
+mesh-crypto = { workspace = true }
+mesh-types = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+ureq = { version = "2", features = ["json"] }
+hex = { workspace = true }

@@ -1,0 +1,20 @@
+[package]
+name = "mesh-ai-v2"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "MonkeyMesh shared-brain v2 — Q16.16 mlp512 contract (Build/24)"
+
+[dependencies]
+blake3 = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[build-dependencies]
+# optional CUDA compile (same pattern as mesh-miner-gpu)
+
+[features]
+default = []
+cuda = []
