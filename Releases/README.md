@@ -5,13 +5,14 @@ Ship **one folder per app**. Each pack is standalone: binary + start script + co
 ```
 Releases/
   Windows/
+    MonkeyMesh/      Desktop app (wallet + Fusion mine + optional local node)
     Node/            MonkeyMesh-Node.exe + mesh-node.exe + Start-Node.bat
     Wallet/          MonkeyMesh-Wallet.exe + CLI
     AiWorker/        mesh-gpu-worker — research jobs (90% pot units)
     Orchestrator/    local orch + worker (optional; seed already hosts orch)
     CpuMiner/        CPU miner pack (Fusion lane A)
     GpuMiner/        GPU miner GUI (Fusion lane B + AI)
-    Miner/           all-in-one miner GUI (CPU + GPU hash + AI)
+    Miner/           miner GUI (CPU + GPU hash + AI)
   Ubuntu/
     Node/            mesh-node + start-node.sh
     Orchestrator/    orch + gpu-worker + scripts

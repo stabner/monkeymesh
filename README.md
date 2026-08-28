@@ -28,15 +28,15 @@ GUI packs are Windows apps — they should not open a Command Prompt. Double-cli
 
 | Pack | What it is |
 |------|------------|
-| `Releases/Windows/MonkeyMesh` | Wallet + Fusion mine + optional local node |
-| `Releases/Windows/Miner` | All-in-one miner GUI (CPU + NVIDIA + AMD) |
+| **Desktop** (`Releases/Windows/MonkeyMesh`) | Full Windows app: wallet, Fusion mine, optional local node |
+| `Releases/Windows/Miner` | Miner GUI (CPU + NVIDIA + AMD) |
 | `Releases/Windows/Node` | Node GUI (`mesh-node.exe` is the headless console binary) |
 | `Releases/Windows/Wallet` | Wallet GUI + CLI |
 | `Releases/Windows/CpuMiner` | CPU miner (console by design) |
 
 ```powershell
 .\Launchers\stage-platform-releases.ps1
-# Releases\Windows\{MonkeyMesh,Node,Miner,Wallet,CpuMiner,GpuMiner,AiWorker}
+# Releases\Windows\{MonkeyMesh (Desktop),Node,Miner,Wallet,CpuMiner,GpuMiner,AiWorker}
 ```
 
 Miner: set **Mine target** `https://eu.hashmonkeys.cloud` and **Your address** to the HD index you actually watch.  

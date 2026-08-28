@@ -72,3 +72,5 @@ Launchers/testnet/local.env
 Launchers/Miners/config.json
 Launchers/_tmp*/
 Releases/**/config.json
+Releases/_github-dist/
+Releases/**/*.zip
