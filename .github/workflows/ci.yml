@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check core crates
+        run: |
+          cargo check -p mesh-types -p mesh-crypto -p meshhash-cpu -p mesh-chain -p mesh-ai -p mesh-ai-v2 -p mesh-rpc -p mesh-p2p
+
+      - name: Test core libraries
+        run: |
+          cargo test -p mesh-types -p mesh-crypto -p meshhash-cpu -p mesh-chain -p mesh-ai -p mesh-ai-v2 --lib

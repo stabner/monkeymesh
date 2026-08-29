@@ -10,6 +10,8 @@ mod seed_gate;
 mod theme;
 mod wallet_store;
 
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -31,15 +33,16 @@ use meshhash_cpu::{
     fusion_sequential_active, pow_fusion_sequential_height, pow_version_for_height,
 };
 use mesh_miner_gpu::{
-    devices_status, enumerate_devices, format_hashrate, run_rpc_loop, ComputeDevice, DeviceInfo,
+    ai_capacity_from_selection, devices_status, enumerate_devices, format_hashrate,
+    looks_like_pool_target, run_ai_loop, run_rpc_loop, AiCapacity, ComputeDevice, DeviceInfo,
     MinerConfig, MinerEvent,
 };
 use mesh_types::Address;
 use rpc::{NodeInfo, RewardsView, RpcClient, TxRow};
 use seed_gate::SeedGate;
 use theme::{
-    ghost_btn, label_upper, panel, pointer, primary_btn, CYAN, CYAN_DIM, DANGER, INK, MUTED, OK,
-    WARN,
+    ghost_btn, ghost_btn_enabled, label_upper, panel, pointer, primary_btn, CYAN, CYAN_DIM,
+    DANGER, INK, MUTED, OK, WARN,
 };
 use wallet_store::{
     reveal_mnemonic, resolve_rpc_candidates, resolve_vault_path, LoadedWallet, WalletKind,
@@ -56,7 +59,7 @@ const SIDE_W: f32 = 196.0;
 const OFFICIAL_POOL: &str = "https://eu.hashmonkeys.cloud";
 const LOCAL_NODE_RPC: &str = "http://127.0.0.1:18082";
 const LOCAL_NODE_RPC_BIND: &str = "127.0.0.1:18082";
-const LOCAL_NODE_P2P: &str = "0.0.0.0:39012";
+const LOCAL_NODE_P2P: &str = "127.0.0.1:39012";
 const EVENT_CAP: usize = 200;
 
 fn app_dir() -> PathBuf {
@@ -64,6 +67,18 @@ fn app_dir() -> PathBuf {
         .ok()
         .and_then(|p| p.parent().map(|d| d.to_path_buf()))
         .unwrap_or_else(|| PathBuf::from("."))
+}
+
+fn replica_dir() -> PathBuf {
+    app_dir().join("data").join("local-node")
+}
+
+fn peek_replica_rpc() -> Option<NodeInfo> {
+    ureq::get(&format!("{LOCAL_NODE_RPC}/v1/getnodeinfo"))
+        .timeout(Duration::from_secs(2))
+        .call()
+        .ok()
+        .and_then(|r| r.into_json().ok())
 }
 
 fn find_local_node_exe() -> Option<PathBuf> {
@@ -87,10 +102,97 @@ fn find_local_node_exe() -> Option<PathBuf> {
     nested.is_file().then_some(nested)
 }
 
+#[cfg(windows)]
+fn win_no_window() -> u32 {
+    0x0800_0000
+}
+
+/// Last few lines of the sidecar log (shown when mesh-node exits).
+fn replica_log_tail(n: usize) -> String {
+    let path = replica_dir().join("node.log");
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return String::new();
+    };
+    let lines: Vec<&str> = text
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect();
+    lines
+        .iter()
+        .rev()
+        .take(n)
+        .cloned()
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .map(|l| {
+            l.trim_start_matches("mesh-node.exe : ")
+                .trim()
+                .to_string()
+        })
+        .collect::<Vec<_>>()
+        .join(" · ")
+}
+
+/// Stop leftover mesh-node processes that own this app's local-node replica
+/// (a previous All-in-One session can hold 18082/39012 for days).
+fn kill_local_node_orphans() {
+    let mark = replica_dir();
+    let mark_s = mark.to_string_lossy().replace('/', "\\");
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let script = format!(
+            r#"
+$mark = {mark:?}
+Get-CimInstance Win32_Process -Filter "Name='mesh-node.exe'" -ErrorAction SilentlyContinue | ForEach-Object {{
+  $cl = [string]$_.CommandLine
+  $hit = ($cl -and $cl.ToLower().Contains('local-node')) -or
+         ($cl -and $mark -and $cl.ToLower().Contains($mark.ToLower()))
+  if ($hit) {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}
+}}
+foreach ($pat in @('127.0.0.1:18082','0.0.0.0:39012','127.0.0.1:39012')) {{
+  netstat -ano | Select-String $pat | ForEach-Object {{
+    $procId = ($_.Line -split '\s+')[-1]
+    if ($procId -match '^\d+$' -and [int]$procId -gt 4) {{
+      try {{
+        $p = Get-Process -Id ([int]$procId) -ErrorAction Stop
+        if ($p.ProcessName -match 'mesh-node') {{
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+        }}
+      }} catch {{}}
+    }}
+  }}
+}}
+"#,
+            mark = mark_s
+        );
+        let _ = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .creation_flags(win_no_window())
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = Command::new("pkill")
+            .args(["-f", "mesh-node.*local-node"])
+            .status();
+        let _ = mark_s;
+    }
+    thread::sleep(Duration::from_millis(400));
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Page {
     Overview,
     Send,
+    Work,
     Receive,
     History,
     Mine,
@@ -181,6 +283,12 @@ struct MeshWalletApp {
     mine_rx: Receiver<MinerEvent>,
     local_node: Option<Child>,
     local_node_status: String,
+    local_replica_height: Option<u64>,
+    local_replica_genesis: String,
+    local_replica_peers: usize,
+    local_sync_samples: Vec<(Instant, u64)>,
+    local_sync_done_logged: bool,
+    last_local_peek: Instant,
     last_poll: Instant,
     to: String,
     amount: String,
@@ -269,6 +377,12 @@ fn main() -> eframe::Result<()> {
                 mine_server: OFFICIAL_POOL.into(),
                 local_node: None,
                 local_node_status: String::new(),
+                local_replica_height: None,
+                local_replica_genesis: String::new(),
+                local_replica_peers: 0,
+                local_sync_samples: Vec::new(),
+                local_sync_done_logged: false,
+                last_local_peek: Instant::now() - Duration::from_secs(10),
                 mine_batch: 256,
                 mine_batch_str: "256".into(),
                 mine_active_label: "Ready".into(),
@@ -556,14 +670,37 @@ impl MeshWalletApp {
         );
 
         let cfg = MinerConfig::with_devices(
-            server,
+            server.clone(),
             addr,
             self.mine_batch,
             5_000_000,
             devices,
         );
         let tx = self.mine_tx.clone();
-        thread::spawn(move || run_rpc_loop(cfg, stop, tx));
+        let stop_pow = stop.clone();
+        thread::spawn(move || run_rpc_loop(cfg, stop_pow, tx));
+        let gpu_selected = self
+            .mine_selected
+            .iter()
+            .any(|d| !matches!(d, ComputeDevice::Cpu));
+        if gpu_selected {
+            let orch = if looks_like_pool_target(&server) {
+                mesh_types::default_rpc_urls().join(",")
+            } else {
+                server
+            };
+            let (gpu_name, vram_bytes) =
+                ai_capacity_from_selection(&self.mine_catalog, &self.mine_selected);
+            let capacity = AiCapacity::from_vram(gpu_name, vram_bytes);
+            let address = self.address.clone();
+            let tx_ai = self.mine_tx.clone();
+            thread::spawn(move || run_ai_loop(orch, address, capacity, stop, tx_ai));
+            self.push_event(
+                EventSrc::Mine,
+                EventKind::Ok,
+                "Research sidecar on — exam MATCH + shared brain",
+            );
+        }
     }
 
     fn stop_mining(&mut self) {
@@ -582,10 +719,43 @@ impl MeshWalletApp {
         self.local_node.is_some()
     }
 
+    fn replica_caught_up(&self) -> bool {
+        let Some(local) = self.local_replica_height.or_else(local_node_snap_height) else {
+            return false;
+        };
+        let public = self.node.as_ref().map(|n| n.height).unwrap_or(0);
+        public > 0 && public.saturating_sub(local) <= 8
+    }
+
+    fn sync_rate_bps(&self) -> Option<f64> {
+        let samples = &self.local_sync_samples;
+        if samples.len() < 2 {
+            return None;
+        }
+        let (t0, h0) = samples[0];
+        let (t1, h1) = *samples.last()?;
+        let dt = t1.saturating_duration_since(t0).as_secs_f64();
+        let dh = h1.saturating_sub(h0) as f64;
+        if dt < 1.5 || dh < 1.0 {
+            return None;
+        }
+        Some(dh / dt)
+    }
+
     fn poll_local_node(&mut self) {
         let dead = match &mut self.local_node {
             Some(child) => match child.try_wait() {
-                Ok(Some(st)) => Some(format!("Local node exited ({st})")),
+                Ok(Some(st)) => {
+                    let tail = replica_log_tail(3);
+                    let extra = if tail.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" {tail}")
+                    };
+                    Some(format!(
+                        "Local node stopped ({st}).{extra} See data/local-node/node.log"
+                    ))
+                }
                 Ok(None) => None,
                 Err(e) => Some(format!("Local node error: {e}")),
             },
@@ -595,6 +765,73 @@ impl MeshWalletApp {
             self.local_node = None;
             self.local_node_status = msg;
         }
+        let peek_every = if self.local_node_alive() && !self.replica_caught_up() {
+            Duration::from_millis(800)
+        } else {
+            Duration::from_secs(2)
+        };
+        if self.local_node_alive() && self.last_local_peek.elapsed() >= peek_every {
+            self.last_local_peek = Instant::now();
+            if let Some(info) = peek_replica_rpc() {
+                self.local_replica_height = Some(info.height);
+                self.local_replica_genesis = info.genesis.clone();
+                self.local_replica_peers = info.peers;
+                let now = Instant::now();
+                self.local_sync_samples
+                    .retain(|(t, _)| now.saturating_duration_since(*t) < Duration::from_secs(20));
+                self.local_sync_samples.push((now, info.height));
+                let public = self.node.as_ref().map(|n| n.height).unwrap_or(0);
+                let behind = public > 0 && public.saturating_sub(info.height) > 8;
+                if behind {
+                    let left = public.saturating_sub(info.height);
+                    let pct = if public > 0 {
+                        (info.height as f64 / public as f64 * 100.0).clamp(0.0, 99.9)
+                    } else {
+                        0.0
+                    };
+                    let eta = self
+                        .sync_rate_bps()
+                        .map(|r| format_eta(left as f64 / r))
+                        .unwrap_or_else(|| "timing…".into());
+                    self.local_node_status = format!(
+                        "Syncing {pct:.0}% · {} / {} · {left} left · {eta}",
+                        format_height(info.height),
+                        format_height(public)
+                    );
+                } else if public > 0 {
+                    self.local_node_status =
+                        format!("Done — in sync with seed at #{}", format_height(info.height));
+                    if !self.local_sync_done_logged {
+                        self.local_sync_done_logged = true;
+                        self.status = "Local node is in sync with the seed.".into();
+                        self.status_ok = true;
+                        self.push_event(
+                            EventSrc::Node,
+                            EventKind::Ok,
+                            format!("Local node in sync at height {}", info.height),
+                        );
+                    }
+                } else {
+                    self.local_node_status =
+                        format!("Syncing from seed · height {}", format_height(info.height));
+                }
+            } else if self.local_node_status.is_empty()
+                || self.local_node_status.starts_with("Running")
+                || self.local_node_status.starts_with("Syncing from seednode")
+            {
+                self.local_node_status =
+                    "Connecting to seednode.hashmonkeys.cloud…".into();
+            }
+        }
+        if !self.local_node_alive() {
+            if let Some(h) = local_node_snap_height() {
+                self.local_replica_height = Some(h);
+            }
+        }
+    }
+
+    fn using_replica_rpc(&self) -> bool {
+        self.rpc_url.trim_end_matches('/') == LOCAL_NODE_RPC
     }
 
     fn start_local_node(&mut self) {
@@ -606,11 +843,46 @@ impl MeshWalletApp {
                 "mesh-node.exe not found next to this app (re-stage the MonkeyMesh pack)".into();
             return;
         };
-        let data = app_dir().join("data").join("local-node");
-        if let Err(e) = std::fs::create_dir_all(&data) {
-            self.local_node_status = format!("Cannot create node data dir: {e}");
+        kill_local_node_orphans();
+        if peek_replica_rpc().is_some() {
+            self.local_node_status =
+                "Ports 18082 / 39012 are still in use. Stop the leftover mesh-node, then Start again."
+                    .into();
+            self.push_event(
+                EventSrc::Node,
+                EventKind::Err,
+                "Local node ports busy — leftover mesh-node was not killed",
+            );
             return;
         }
+        let data = replica_dir();
+        if let Err(e) = std::fs::create_dir_all(&data) {
+            self.local_node_status = format!("Cannot create local node data dir: {e}");
+            return;
+        }
+        let log_path = data.join("node.log");
+        let mut log = match OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+        {
+            Ok(f) => f,
+            Err(e) => {
+                self.local_node_status = format!("Cannot write {}: {e}", log_path.display());
+                return;
+            }
+        };
+        let _ = writeln!(
+            log,
+            "\n=== local node start (sync from official seed only, no local mine) ==="
+        );
+        let log_err = match log.try_clone() {
+            Ok(f) => f,
+            Err(e) => {
+                self.local_node_status = format!("Cannot clone log handle: {e}");
+                return;
+            }
+        };
         let mut cmd = Command::new(&exe);
         cmd.arg("--chain")
             .arg(data.join("chain.bin"))
@@ -622,29 +894,42 @@ impl MeshWalletApp {
             .arg("--wallet")
             .arg(data.join("wallet.key"))
             .arg("--p2p-key")
-            .arg(data.join("p2p.key"))
-            .arg("--miner-key")
-            .arg(data.join("miner.key"))
-            .arg("--connect")
-            .arg(mesh_types::default_seed_p2p())
-            .current_dir(app_dir())
-            .env("MESH_FORCE_RETARGET_INTERVAL", "15")
+            .arg(data.join("p2p.key"));
+        for peer in mesh_types::default_seed_connects() {
+            let peer = peer.trim();
+            if !peer.is_empty() {
+                cmd.arg("--connect").arg(peer);
+            }
+        }
+        cmd.current_dir(app_dir())
+            .env("MESH_HTTP_SYNC", "1")
+            .env("MESH_JOIN_OFFICIAL", "1")
+            .env("MESH_WAL_FSYNC", "0")
+            .env("RUST_LOG", "info")
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
+            .stdout(log)
+            .stderr(log_err);
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-            cmd.creation_flags(CREATE_NO_WINDOW);
+            cmd.creation_flags(win_no_window());
         }
         match cmd.spawn() {
             Ok(child) => {
                 self.local_node = Some(child);
-                self.local_node_status = format!("Running · RPC {LOCAL_NODE_RPC}");
+                self.last_local_peek = Instant::now() - Duration::from_secs(10);
+                self.local_sync_samples.clear();
+                self.local_sync_done_logged = false;
+                self.local_replica_peers = 0;
+                self.local_node_status = "Connecting to seednode.hashmonkeys.cloud…".into();
+                self.push_event(
+                    EventSrc::Node,
+                    EventKind::Info,
+                    "Local node started — sync from official seed only",
+                );
             }
             Err(e) => {
-                self.local_node_status = format!("Failed to start node: {e}");
+                self.local_node_status = format!("Failed to start local node: {e}");
             }
         }
     }
@@ -653,8 +938,23 @@ impl MeshWalletApp {
         if let Some(mut child) = self.local_node.take() {
             let _ = child.kill();
             let _ = child.wait();
-            self.local_node_status = "Local node stopped".into();
         }
+        kill_local_node_orphans();
+        self.local_node_status = "Local node stopped".into();
+        self.push_event(EventSrc::Node, EventKind::Warn, "Local node stopped");
+    }
+
+    fn try_use_replica_rpc(&mut self) {
+        if !self.replica_caught_up() {
+            self.status =
+                "Local node is still syncing from the seed. Stay on Official seed until it catches up."
+                    .into();
+            self.status_ok = false;
+            return;
+        }
+        self.use_wallet_rpc(LOCAL_NODE_RPC.into());
+        self.status = "Wallet RPC is your local node (copy of the official chain).".into();
+        self.status_ok = true;
     }
 
     fn use_wallet_rpc(&mut self, url: String) {
@@ -804,8 +1104,8 @@ impl eframe::App for MeshWalletApp {
         if !self.busy && self.last_poll.elapsed() > Duration::from_secs(2) {
             self.queue_refresh();
         }
-        // Idle: poll cadence. Mining/busy: smoother UI. Avoid permanent 30fps burn.
-        let repaint = if self.mining || self.busy {
+        let syncing = self.local_node_alive() && !self.replica_caught_up();
+        let repaint = if self.mining || self.busy || syncing {
             Duration::from_millis(100)
         } else {
             Duration::from_millis(400)
@@ -847,6 +1147,7 @@ impl eframe::App for MeshWalletApp {
                             |ui| match self.page {
                                 Page::Overview => self.page_overview(ui),
                                 Page::Send => self.page_send(ui),
+                                Page::Work => self.page_work(ui),
                                 Page::Receive => self.page_receive(ui),
                                 Page::History => self.page_history(ui),
                                 Page::Mine => self.page_mine(ui),
@@ -896,6 +1197,7 @@ impl MeshWalletApp {
         let items = [
             (Page::Overview, Icon::Overview, "Overview"),
             (Page::Send, Icon::Send, "Send"),
+            (Page::Work, Icon::Mine, "Work"),
             (Page::Receive, Icon::Receive, "Receive"),
             (Page::History, Icon::History, "History"),
             (Page::Mine, Icon::Mine, "Mine"),
@@ -932,6 +1234,7 @@ impl MeshWalletApp {
         let title = match self.page {
             Page::Overview => "Overview",
             Page::Send => "Send",
+            Page::Work => "Work market",
             Page::Receive => "Receive",
             Page::History => "History",
             Page::Mine => "Mine",
@@ -1011,6 +1314,9 @@ impl MeshWalletApp {
             if primary_btn(ui, "Send", true).clicked() {
                 self.page = Page::Send;
             }
+            if ghost_btn(ui, "Work market").clicked() {
+                self.page = Page::Work;
+            }
             if ghost_btn(ui, "Receive").clicked() {
                 self.page = Page::Receive;
             }
@@ -1066,6 +1372,66 @@ impl MeshWalletApp {
             .show(ui, |ui| {
                 self.tx_rows(ui, 12);
             });
+    }
+
+    fn page_work(&mut self, ui: &mut egui::Ui) {
+        panel().show(ui, |ui| {
+            ui.set_width(ui.available_width().min(560.0));
+            ui.label(
+                RichText::new("MESH work market")
+                    .color(CYAN)
+                    .size(16.0)
+                    .strong(),
+            );
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(
+                    "From height 39000 every block needs an immune-exam MATCH. Half of the GPU 45% pays rematched exams and brain jobs. Send MESH to hire a check or tip a helper.",
+                )
+                .color(MUTED)
+                .size(12.0),
+            );
+            ui.add_space(12.0);
+            label_upper(ui, "Pay a helper");
+            ui.label(
+                RichText::new("Paste a mesh01… address that is matching exams, then send.")
+                    .color(MUTED)
+                    .size(11.5),
+            );
+            ui.add_space(8.0);
+            label_upper(ui, "To");
+            field(ui, &mut self.to, "mesh01…", true);
+            ui.add_space(8.0);
+            label_upper(ui, "Amount");
+            field(ui, &mut self.amount, "1.0", false);
+            if self.memo.trim().is_empty() {
+                self.memo = "mesh-work:v1".into();
+            }
+            ui.add_space(8.0);
+            label_upper(ui, "Memo");
+            field(ui, &mut self.memo, "mesh-work:v1", true);
+            ui.add_space(14.0);
+            if primary_btn(ui, "Pay for work", !self.busy).clicked() {
+                if let Some(key) = self.key.clone() {
+                    self.busy = true;
+                    let _ = self.job_tx.send((
+                        Job::Send {
+                            to: self.to.clone(),
+                            amount: self.amount.clone(),
+                            memo: self.memo.clone(),
+                        },
+                        self.rpc_url.clone(),
+                        key,
+                    ));
+                }
+            }
+            ui.add_space(10.0);
+            ui.label(
+                RichText::new("Public board: hashmonkeys.cloud/testnet-explorer.html#market")
+                    .color(MUTED)
+                    .size(11.0),
+            );
+        });
     }
 
     fn page_send(&mut self, ui: &mut egui::Ui) {
@@ -1649,6 +2015,161 @@ impl MeshWalletApp {
             });
     }
 
+    fn ui_local_sync_progress(&self, ui: &mut egui::Ui) {
+        let running = self.local_node_alive();
+        let local_h = self.local_replica_height.or_else(local_node_snap_height);
+        let public_h = self.node.as_ref().map(|n| n.height).unwrap_or(0);
+        let public_genesis = self
+            .node
+            .as_ref()
+            .map(|n| n.genesis.as_str())
+            .unwrap_or("");
+        let genesis_mismatch = !self.local_replica_genesis.is_empty()
+            && !public_genesis.is_empty()
+            && self.local_replica_genesis != public_genesis;
+        let caught = self.replica_caught_up() && !genesis_mismatch;
+        let Some(local_h) = local_h else {
+            if running {
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new("Connecting to the official seed…")
+                        .color(WARN)
+                        .size(12.0),
+                );
+                ui.add(
+                    egui::ProgressBar::new(0.0)
+                        .desired_width(ui.available_width())
+                        .animate(true)
+                        .text("starting"),
+                );
+            }
+            return;
+        };
+        let frac = if public_h > 0 {
+            (local_h as f32 / public_h as f32).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let left = public_h.saturating_sub(local_h);
+        let rate = self.sync_rate_bps();
+        let eta = if caught {
+            None
+        } else {
+            rate.map(|r| {
+                if r > 0.05 {
+                    format_eta(left as f64 / r)
+                } else {
+                    "waiting for next batch…".into()
+                }
+            })
+        };
+
+        ui.add_space(8.0);
+        egui::Frame::new()
+            .fill(Color32::from_rgba_unmultiplied(14, 22, 32, 236))
+            .stroke(egui::Stroke::new(1.0, theme::RULE))
+            .corner_radius(theme::leaf_radius())
+            .inner_margin(egui::Margin::symmetric(12, 10))
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                let (badge, badge_col, title) = if genesis_mismatch {
+                    ("ERROR", DANGER, "Genesis does not match the seed")
+                } else if caught {
+                    ("DONE", OK, "In sync with the official seed")
+                } else if running {
+                    ("SYNCING", WARN, "Pulling blocks from the official seed")
+                } else {
+                    ("PAUSED", MUTED, "Stopped — last downloaded height")
+                };
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(badge)
+                            .color(badge_col)
+                            .size(11.0)
+                            .strong()
+                            .monospace(),
+                    );
+                    ui.label(RichText::new(title).color(INK).size(13.0).strong());
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if caught {
+                            ui.label(RichText::new("100%").color(OK).size(13.0).strong());
+                        } else if public_h > 0 {
+                            ui.label(
+                                RichText::new(format!("{:.0}%", (frac * 100.0).min(99.0)))
+                                    .color(WARN)
+                                    .size(13.0)
+                                    .strong(),
+                            );
+                        }
+                    });
+                });
+                ui.add_space(6.0);
+                let bar_text = if public_h > 0 {
+                    format!("{} / {}", format_height(local_h), format_height(public_h))
+                } else {
+                    format!("height {}", format_height(local_h))
+                };
+                ui.add(
+                    egui::ProgressBar::new(if caught { 1.0 } else { frac })
+                        .desired_width(ui.available_width())
+                        .animate(running && !caught)
+                        .text(bar_text),
+                );
+                ui.add_space(6.0);
+                if genesis_mismatch {
+                    ui.label(
+                        RichText::new(
+                            "Delete data/local-node and Start local node again. Do not Use local RPC.",
+                        )
+                        .color(DANGER)
+                        .size(11.5),
+                    );
+                } else if caught {
+                    ui.label(
+                        RichText::new(format!(
+                            "Caught up at #{}. Same chain as the seed. Use local RPC is ready.",
+                            format_height(local_h)
+                        ))
+                        .color(OK)
+                        .size(12.0),
+                    );
+                } else {
+                    let mut bits = vec![format!("{} blocks left", format_height(left))];
+                    if let Some(r) = rate {
+                        bits.push(format!("{:.0} blocks/s", r));
+                    }
+                    if let Some(e) = eta {
+                        bits.push(e);
+                    }
+                    if self.local_replica_peers > 0 {
+                        bits.push(format!(
+                            "{} peer{}",
+                            self.local_replica_peers,
+                            if self.local_replica_peers == 1 { "" } else { "s" }
+                        ));
+                    }
+                    ui.label(RichText::new(bits.join("  ·  ")).color(MUTED).size(12.0));
+                    ui.label(
+                        RichText::new(
+                            "Height 0 is official genesis. This is a download, not a new coin.",
+                        )
+                        .color(MUTED)
+                        .size(11.0),
+                    );
+                }
+            });
+        if self.using_replica_rpc() && !caught {
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(
+                    "Wallet RPC is pointing at the local node while it is still syncing. Switch back to Official seed.",
+                )
+                .color(DANGER)
+                .size(12.0),
+            );
+        }
+    }
+
     fn page_network(&mut self, ui: &mut egui::Ui) {
         let h = ui.available_height();
         egui::ScrollArea::vertical()
@@ -1746,29 +2267,18 @@ impl MeshWalletApp {
             label_upper(ui, "Local node");
             ui.label(
                 RichText::new(
-                    "Optional replica beside this app. Uses ports 18082 / 39012 so it does not collide with the standalone Node pack.",
+                    "Runs a node on this PC that only syncs from the official seed and its peers. Same genesis, same chain — it does not start a private network. Wallet and mining stay on the seed / pool until this copy is caught up.",
                 )
                 .color(MUTED)
                 .size(11.0),
             );
-            if let Some(local_h) = local_node_snap_height() {
-                let public_h = self.node.as_ref().map(|n| n.height).unwrap_or(0);
-                if public_h == 0 || public_h.saturating_sub(local_h) > 64 {
-                    ui.add_space(6.0);
-                    ui.label(
-                        RichText::new(format!(
-                            "Local replica data is height {local_h}{}. Do not Use local RPC until this sidecar catches up — wallet and mine stay on the seed / official pool.",
-                            if public_h > 0 {
-                                format!("; wallet node is #{public_h}")
-                            } else {
-                                String::new()
-                            }
-                        ))
-                        .color(WARN)
-                        .size(12.0),
-                    );
-                }
-            }
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new("RPC 127.0.0.1:18082 · P2P 127.0.0.1:39012 (does not collide with the Node pack).")
+                    .color(MUTED)
+                    .size(11.0),
+            );
+            self.ui_local_sync_progress(ui);
             if find_local_node_exe().is_none() {
                 ui.label(
                     RichText::new("mesh-node.exe is not next to this app — use the MonkeyMesh Windows pack.")
@@ -1777,19 +2287,18 @@ impl MeshWalletApp {
                 );
             } else {
                 let running = self.local_node_alive();
-                ui.label(
-                    RichText::new(if self.local_node_status.is_empty() {
-                        if running {
-                            "Running"
-                        } else {
-                            "Stopped"
-                        }
-                    } else {
-                        self.local_node_status.as_str()
-                    })
-                    .color(if running { OK } else { MUTED })
-                    .size(12.0),
-                );
+                let caught = self.replica_caught_up();
+                let fail = self.local_node_status.contains("stopped (")
+                    || self.local_node_status.contains("Failed")
+                    || self.local_node_status.contains("error");
+                if fail && !running {
+                    ui.add_space(6.0);
+                    ui.label(
+                        RichText::new(&self.local_node_status)
+                            .color(DANGER)
+                            .size(12.0),
+                    );
+                }
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     if running {
@@ -1799,8 +2308,13 @@ impl MeshWalletApp {
                     } else if primary_btn(ui, "Start local node", true).clicked() {
                         self.start_local_node();
                     }
-                    if ghost_btn(ui, "Use local RPC").clicked() {
-                        self.use_wallet_rpc(LOCAL_NODE_RPC.into());
+                    if ghost_btn_enabled(ui, "Use local RPC", caught).clicked() {
+                        self.try_use_replica_rpc();
+                    }
+                    if self.using_replica_rpc()
+                        && ghost_btn(ui, "Official seed").clicked()
+                    {
+                        self.use_wallet_rpc(mesh_types::default_seed_rpc_url());
                     }
                 });
             }
@@ -2056,8 +2570,36 @@ fn format_emitted(atomic: &str) -> String {
     }
 }
 
+fn format_height(n: u64) -> String {
+    let s = n.to_string();
+    let mut out = String::new();
+    for (i, c) in s.chars().rev().enumerate() {
+        if i > 0 && i % 3 == 0 {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    out.chars().rev().collect()
+}
+
+fn format_eta(secs: f64) -> String {
+    if !secs.is_finite() || secs < 0.0 {
+        return "timing…".into();
+    }
+    let s = secs.round().max(0.0) as u64;
+    if s < 20 {
+        "a few seconds".into()
+    } else if s < 90 {
+        format!("~{s}s left")
+    } else if s < 3600 {
+        format!("~{} min left", (s + 30) / 60)
+    } else {
+        format!("~{} h left", (s + 1800) / 3600)
+    }
+}
+
 fn local_node_snap_height() -> Option<u64> {
-    let p = app_dir().join("data").join("local-node").join("chain.snap.json");
+    let p = replica_dir().join("chain.snap.json");
     let raw = std::fs::read_to_string(p).ok()?;
     let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
     v.get("height")?.as_u64()

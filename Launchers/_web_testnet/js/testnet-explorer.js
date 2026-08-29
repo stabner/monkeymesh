@@ -22,7 +22,7 @@
       trainId: "security",
       title: "Security",
       goal: "Catch spam and cheaters before they hurt the chain",
-      how: "Guardian model practices “spot the bad actor” drills",
+      how: "Guardian model practices spot-the-bad-actor drills",
     },
     {
       key: "scale",
@@ -138,6 +138,56 @@
       return m.mining;
     }).length;
     return Math.max(seed, poolMinerCount(snap.pool));
+  }
+
+  /** Seed plus unique P2P peers it has pinged. Not a global census. */
+  function liveNodeCount(info) {
+    if (!info) return "—";
+    var ids = {};
+    function add(id) {
+      if (!id) return;
+      ids[String(id)] = true;
+    }
+    add(info.peer_id);
+    var rtts = info.peer_rtts || [];
+    for (var i = 0; i < rtts.length; i++) {
+      add(rtts[i] && rtts[i].peer_id);
+    }
+    var unique = Object.keys(ids).length;
+    var peers = Number(info.peers);
+    var connected = (isFinite(peers) && peers >= 0 ? peers : 0) + (info.peer_id ? 1 : 0);
+    var n = Math.max(unique, connected);
+    return n > 0 ? n : "—";
+  }
+
+  function nodePeerListHtml(info) {
+    var ids = [];
+    var seen = {};
+    function add(id, label) {
+      if (!id) return;
+      var k = String(id);
+      if (seen[k]) return;
+      seen[k] = true;
+      ids.push({ id: k, label: label || "peer" });
+    }
+    add(info && info.peer_id, "seed");
+    ((info && info.peer_rtts) || []).forEach(function (p) {
+      add(p && p.peer_id, p.rtt_ms != null ? p.rtt_ms + " ms" : "peer");
+    });
+    if (!ids.length) {
+      return '<p class="tn-muted">No P2P peers reported by the seed yet.</p>';
+    }
+    return ids
+      .map(function (row) {
+        return (
+          '<div class="tn-row"><span>' +
+          esc(row.label) +
+          '</span><span class="tn-mono">' +
+          esc(shortHash(row.id)) +
+          "</span></div>"
+        );
+      })
+      .join("");
   }
 
   /** Where miners work: pool template height, else seed. One chain — not two clocks. */
@@ -1164,7 +1214,7 @@
         '<div class="stat-card" data-hero="diff"><small>Difficulty</small><strong class="stat-card__value--num" data-v></strong><span class="stat-card__hint">Consensus</span></div>' +
         '<div class="stat-card" data-hero="reward"><small>Block reward</small><strong class="stat-card__value--num" data-v></strong><span class="stat-card__hint">MESH · 45 you + 5 nodes</span></div>' +
         '<div class="stat-card" data-hero="miners"><small>Miners</small><strong class="stat-card__value--num" data-v></strong><span class="stat-card__hint">HTTPS pool</span></div>' +
-        '<div class="stat-card" data-hero="peers"><small>Peers</small><strong class="stat-card__value--num" data-v></strong><span class="stat-card__hint">Connected nodes</span></div>' +
+        '<div class="stat-card" data-hero="nodes"><small>Nodes</small><strong class="stat-card__value--num" data-v></strong><span class="stat-card__hint">Active on P2P</span></div>' +
         '<div class="stat-card" data-hero="emitted"><small>Total emitted</small><strong class="stat-card__value--num" data-v></strong><span class="stat-card__hint">MESH · live issuance</span></div>' +
         '<div class="stat-card" data-hero="remain"><small>Remaining</small><strong class="stat-card__value--num" data-v></strong><span class="stat-card__hint">MESH left to mint</span></div>' +
         '<div class="stat-card" data-hero="cap"><small>Max supply</small><strong class="stat-card__value--num" data-v></strong><span class="stat-card__hint">Hard cap · enforced</span></div>';
@@ -1202,7 +1252,7 @@
     setText('[data-hero="diff"] [data-v]', info.next_difficulty ?? "—", el);
     setText('[data-hero="reward"] [data-v]', fmtMeshInt(markets.block_reward, false) || "50", el);
     setText('[data-hero="miners"] [data-v]', liveMinerCount(snap), el);
-    setText('[data-hero="peers"] [data-v]', info.peers != null ? info.peers : "—", el);
+    setText('[data-hero="nodes"] [data-v]', liveNodeCount(info), el);
     var supply = supplyFromSnap(snap);
     setText('[data-hero="emitted"] [data-v]', fmtMeshInt(supply.emitted, false) || "—", el);
     setText('[data-hero="remain"] [data-v]', fmtMeshInt(supply.remain, false) || "—", el);
@@ -1219,7 +1269,7 @@
       "</div>" +
       '<div class="tn-easy" data-easy-results></div>' +
       '<div class="tn-easy" data-exam-tape></div>' +
-      '<p class="tn-muted tn-ai__foot">Fusion finds the block. Each miner runs one named immune exam per height. From height 1 the pot is locked 45% Fusion seal / 45% GPU work / 10% nodes — research cannot tilt the coin. The seed rematches the exam or it does not pay.</p>' +
+      '<p class="tn-muted tn-ai__foot">Fusion finds the block. From height 39000 the finder must MATCH the immune exam to submit. Helper-floor MESH pays rematched exams and brain steps. Research cannot move BPS.</p>' +
       "</div>"
     );
   }
@@ -1271,7 +1321,7 @@
       '<div class="tn-card">' +
       '<h3>What this chain is doing</h3>' +
       '<p class="tn-lead"><b>Why mine it?</b> A CPU-only coin wastes your GPU. A GPU-only coin wastes your CPU. MESH needs both on one Fusion digest. The same finder gets 45% Fusion seal + 45% GPU work. You get paid to the wallet in the miner — not a pool treasury.</p>' +
-      '<p class="tn-lead">MonkeyMesh is a <b>home-PC coin</b>. First valid nonce wins. Optional AI jobs are homework the network re-checks — they do not find the block, and they are not a compute marketplace.</p>' +
+      '<p class="tn-lead">MonkeyMesh is a <b>home-PC coin</b>. First valid nonce wins. From height <b>39000</b> the finder must MATCH the immune exam or the block is rejected. Rematched exams and brain steps are paid from half of the GPU 45%.</p>' +
       '<div class="tn-split" aria-hidden="true"><span class="tn-split__cpu"></span><span class="tn-split__gpu"></span><span class="tn-split__node"></span></div>' +
       '<div class="tn-split-legend"><span><b>45% Fusion seal</b></span><span><b>45% GPU work</b></span><span><b>10% nodes</b></span></div>' +
       '<div class="tn-steps">' +
@@ -1283,6 +1333,7 @@
       '<div class="tn-grid">' +
       '<div class="tn-card"><h3>Live chain</h3>' +
       rowSlot("height", "Height") +
+      rowSlot("nnodes", "Active nodes") +
       rowSlot("finality", "Finality") +
       rowSlot("blocks", "Blocks") +
       rowSlot("diff", "Difficulty") +
@@ -1295,7 +1346,7 @@
       rowSlot("gpu", "GPU work") +
       rowSlot("node", "Network nodes") +
       rowSlot("split", "Locked split") +
-      '<p class="tn-muted" style="margin-top:.5rem">Same finder gets both 45s (45 MESH). Helper floor is off. Nodes get 5 only for attested work.</p></div>' +
+      '<p class="tn-muted" style="margin-top:.5rem">Same finder gets both 45s when the exam MATCHES. After 39000 the helper floor pays exam/brain units from the GPU lane. Nodes get 5 only for attested work.</p></div>' +
       "</div>" +
       '<div class="tn-grid">' +
       '<div class="tn-card"><h3>If you are a miner</h3>' +
@@ -1331,6 +1382,7 @@
     var ai = snap.ai || {};
     var br = liveBrain(snap);
     setText('[data-row="height"] [data-v]', info.height ?? "—", root);
+    setText('[data-row="nnodes"] [data-v]', liveNodeCount(info), root);
     setText('[data-row="finality"] [data-v]', finalityLabel(info), root);
     setText('[data-row="blocks"] [data-v]', info.blocks ?? "—", root);
     setText('[data-row="diff"] [data-v]', info.next_difficulty ?? "—", root);
@@ -1537,6 +1589,56 @@
       '<p class="tn-muted tn-road-foot">MESH is a home-PC coin with optional rematched AI exams. It is not a GPU rental marketplace, and AI cannot change the 45 / 45 / 10 split.</p>';
   }
 
+  function buildMarketShell(root) {
+    root.innerHTML =
+      '<div class="tn-card">' +
+      "<h3>MESH work market</h3>" +
+      '<p class="tn-lead">MESH is for <b>paid, rematched work</b> — not only minting. From height <b>39000</b> a block is rejected without an immune-exam MATCH. Half of the GPU 45% pays exam helpers and verified brain steps.</p>' +
+      '<p class="tn-muted">Hire a check: send MESH from the All-in-One <b>Work</b> tab with memo <span class="tn-mono">mesh-work:v1</span> to a helper address below. Spend after 20 confirms.</p>' +
+      "</div>" +
+      '<div class="tn-grid">' +
+      '<div class="tn-card"><h3>Shared brain</h3>' +
+      rowSlot("mepoch", "Brain epoch") +
+      rowSlot("madv", "Advances") +
+      rowSlot("macc", "Last accuracy") +
+      '<p class="tn-muted" style="margin-top:.5rem">The seed steps the model when no GPU worker is attached so the epoch cannot sit at 0.</p></div>' +
+      '<div class="tn-card"><h3>This block\'s homework pot</h3>' +
+      rowSlot("mexam", "Exam / brain floor") +
+      rowSlot("mfusion", "Finder GPU work") +
+      rowSlot("mneed", "Exam required") +
+      "</div></div>" +
+      '<div class="tn-card"><h3>Recent exam MATCH</h3><div data-exam-tape></div></div>';
+  }
+
+  function updateMarket(root, snap) {
+    var pulse = snap.pulse || {};
+    var markets = snap.markets || {};
+    setText('[data-row="mepoch"] [data-v]', pulse.brain_epoch != null ? pulse.brain_epoch : "—", root);
+    setText('[data-row="madv"] [data-v]', pulse.brain_advances != null ? pulse.brain_advances : "—", root);
+    var acc = pulse.brain_acc;
+    setText(
+      '[data-row="macc"] [data-v]',
+      acc != null && acc !== "" ? (Number(acc) * 100).toFixed(1) + "%" : "—",
+      root
+    );
+    setText(
+      '[data-row="mexam"] [data-v]',
+      markets.gpu_exam_market || (markets.helper_floor ? "on" : "off until #39000"),
+      root
+    );
+    setText(
+      '[data-row="mfusion"] [data-v]',
+      markets.gpu_fusion_market || markets.gpu_market || "—",
+      root
+    );
+    setText(
+      '[data-row="mneed"] [data-v]',
+      markets.exam_required || markets.useful_work_active ? "yes" : "from height 39000",
+      root
+    );
+    updateAiPanel(root, snap);
+  }
+
   function updateAdaptive(root, snap) {
     updateAiPanel(root, snap);
     var env = snap.envelopes || {};
@@ -1678,6 +1780,7 @@
   function buildNetworkShell(root) {
     root.innerHTML =
       '<div class="tn-card"><h3>Public seed</h3>' +
+      rowSlot("nnodes", "Active nodes") +
       rowSlot("peer", "Peer id", true) +
       rowSlot("rpc", "Connect (RPC)", true) +
       rowSlot("pool", "Pool mine target", true) +
@@ -1685,11 +1788,13 @@
       rowSlot("nheight", "Height") +
       rowSlot("nfinality", "Finality") +
       rowSlot("genesis", "Genesis", true) +
-      '</div><div class="tn-card"><h3>Known miners</h3><div data-miners></div></div>';
+      '</div><div class="tn-card"><h3>Nodes the seed sees</h3><div data-nodes></div></div>' +
+      '<div class="tn-card"><h3>Known miners</h3><div data-miners></div></div>';
   }
 
   function updateNetwork(root, snap) {
     var info = snap.info || {};
+    setText('[data-row="nnodes"] [data-v]', liveNodeCount(info), root);
     setText('[data-row="peer"] [data-v]', shortHash(info.peer_id), root);
     setText('[data-row="rpc"] [data-v]', "seednode.hashmonkeys.cloud:18080", root);
     setText('[data-row="pool"] [data-v]', "https://eu.hashmonkeys.cloud", root);
@@ -1697,6 +1802,7 @@
     setText('[data-row="nheight"] [data-v]', info.height ?? "—", root);
     setText('[data-row="nfinality"] [data-v]', finalityLabel(info), root);
     setText('[data-row="genesis"] [data-v]', shortHash(info.genesis), root);
+    setHTML("[data-nodes]", nodePeerListHtml(info), root);
     setHTML("[data-miners]", minersHtml(snap), root);
   }
 
@@ -2100,7 +2206,8 @@
         page.name === "blocks" ||
         page.name === "how" ||
         page.name === "tokenomics" ||
-        page.name === "roadmap")
+        page.name === "roadmap" ||
+        page.name === "market")
     ) {
       return root;
     }
@@ -2118,6 +2225,9 @@
       state.builtPage = key;
     } else if (page.name === "roadmap") {
       buildRoadmapShell(root);
+      state.builtPage = key;
+    } else if (page.name === "market") {
+      buildMarketShell(root);
       state.builtPage = key;
     } else if (page.name === "blocks") {
       buildBlocksShell(root);
@@ -2168,6 +2278,9 @@
       } else if (page.name === "tokenomics") {
         await ensureShell(page);
         updateTokenomics(root, snap);
+      } else if (page.name === "market") {
+        await ensureShell(page);
+        updateMarket(root, snap);
       } else if (page.name === "roadmap") {
         await ensureShell(page);
       } else if (page.name === "network") {

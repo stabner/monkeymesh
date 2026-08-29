@@ -14,8 +14,8 @@
   <link rel="stylesheet" href="css/themes/cyberspace.css?v=4" />
   <link rel="stylesheet" href="css/themes/obsidian-fx.css?v=2" />
   <link rel="stylesheet" href="css/themes/obsidian.css?v=3" />
-  <link rel="stylesheet" href="css/testnet-explorer.css?v=17" />
-  <link rel="stylesheet" href="css/testnet-explorer-mesh.css?v=11" />
+  <link rel="stylesheet" href="css/testnet-explorer.css?v=18" />
+  <link rel="stylesheet" href="css/testnet-explorer-mesh.css?v=12" />
 </head>
 <body>
   <canvas id="mhStarfield" class="mh-starfield" aria-hidden="true"></canvas>
@@ -58,7 +58,7 @@
         <p class="tn-muted" id="tnStatus">Connecting to seed…</p>
       </div>
       <div id="tnHeroStats" class="hero-stats tn-hero-stats" hidden aria-hidden="true"></div>
-      <p class="tn-muted tn-hero-note">Network hashrate is not published yet. Last-block age, height, and miner count show whether the chain is moving. Per-rig H/s is on the dashboard.</p>
+      <p class="tn-muted tn-hero-note">Network hashrate is not published yet. Last-block age, height, miner count, and node count (who the seed sees on P2P) show whether the chain is moving. Per-rig H/s is on the dashboard.</p>
     </header>
 
     <nav class="scheme-toolbar tn-tabs" id="tnTabs" aria-label="Explorer sections">
@@ -67,6 +67,7 @@
       <a href="#tokenomics" data-page="tokenomics">Tokenomics</a>
       <a href="#roadmap" data-page="roadmap">Roadmap</a>
       <a href="#adaptive" data-page="adaptive">AI</a>
+      <a href="#market" data-page="market">Market</a>
       <a href="#blocks" data-page="blocks">Blocks</a>
       <a href="#txs" data-page="txs">Transactions</a>
       <a href="#network" data-page="network">Network</a>
@@ -89,6 +90,6 @@
   <script src="config.js?v=65"></script>
   <script src="config.local.js" onerror=""></script>
   <script src="js/core.js?v=57"></script>
-  <script src="js/testnet-explorer.js?v=52"></script>
+  <script src="js/testnet-explorer.js?v=55"></script>
 </body>
 </html>

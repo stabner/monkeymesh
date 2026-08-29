@@ -100,3 +100,33 @@ pub fn try_submit_exam(
         let _ = tx.send(MinerEvent::Status(format!("Exam: {last_err}")));
     }
 }
+
+/// Block until this height's exam MATCH is accepted (or 8s). Needed from useful-work height.
+pub fn ensure_exam_match(rpc: &str, payout: &Address, hint: &ExamHint, tx: &std::sync::mpsc::Sender<MinerEvent>) -> bool {
+    if hint.payload_hex.is_empty() || hint.height == 0 {
+        return false;
+    }
+    {
+        let mut g = LAST_EXAM_HEIGHT.lock().unwrap_or_else(|e| e.into_inner());
+        *g = 0;
+    }
+    try_submit_exam(rpc, payout, hint, tx);
+    let deadline = Instant::now() + Duration::from_secs(8);
+    let want = mesh_types::exam_job_id(hint.height, payout);
+    while Instant::now() < deadline {
+        let url = format!("{}/v1/exam/status", rpc.trim_end_matches('/'));
+        if let Ok(resp) = ureq::get(&url).timeout(Duration::from_secs(4)).call() {
+            if let Ok(v) = resp.into_json::<serde_json::Value>() {
+                let recent = v.get("recent").and_then(|x| x.as_array()).cloned().unwrap_or_default();
+                if recent
+                    .iter()
+                    .any(|r| r.get("job_id").and_then(|j| j.as_str()) == Some(want.as_str()))
+                {
+                    return true;
+                }
+            }
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    false
+}

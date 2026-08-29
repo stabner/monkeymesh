@@ -114,7 +114,7 @@ function Copy-TemplateFiles([string]$Name, [string]$DestDir) {
     Get-ChildItem -Path $src -Filter "_start-gui.vbs" -ErrorAction SilentlyContinue |
         ForEach-Object { Copy-Item -Force $_.FullName $DestDir }
     Copy-Item -Force (Join-Path $src "README.txt") $DestDir
-    Preserve-Config (Join-Path $DestDir "config.json") (Join-Path $src "config.json") -ForceKeys @("rpc")
+    Preserve-Config (Join-Path $DestDir "config.json") (Join-Path $src "config.json") -ForceKeys @("rpc", "ai_research")
 }
 
 function Write-Manifest([string]$DestDir, [string[]]$Required) {

@@ -118,6 +118,20 @@ const MIN_SCRATCH_BUDGET: usize = 64 * 1024 * 1024;
 const MAX_VRAM_BATCH_BYTES: usize = 4 * 1024 * 1024 * 1024;
 /// Use a fraction of VRAM for the on-device pad batch.
 const VRAM_USE_PCT: u64 = 40;
+/// Never mix more pads than this for luck vs tip lifetime (VRAM auto can be hundreds).
+const MAX_LUCK_BATCH: u32 = 32;
+
+#[inline]
+fn work_aborted(stop: &AtomicBool, stale: &AtomicBool) -> bool {
+    stop.load(Ordering::Relaxed) || stale.load(Ordering::Relaxed)
+}
+
+/// How many parallel pads are worth mixing before the tip likely moves.
+/// At low testnet difficulty a VRAM-full wave outlives the block and looks like a stall.
+fn luck_batch_cap(difficulty: u32) -> u32 {
+    let expected = 1u32 << difficulty.min(16);
+    expected.saturating_mul(4).clamp(8, MAX_LUCK_BATCH)
+}
 
 /// Logical CPUs for MeshHash (like XMRig thread count).
 pub fn cpu_parallelism() -> usize {
@@ -173,7 +187,7 @@ pub fn scratch_budget_bytes(vram_bytes: Option<u64>) -> usize {
 /// CPU (`vram_bytes == None`): size batch to feed all cores continuously.
 /// `host_roundtrip`: OpenCL still downloads full pads — cap PCIe copies.
 pub fn clamp_batch(user_batch: u32, pad_size: usize, vram_bytes: Option<u64>) -> u32 {
-    clamp_batch_xfer(user_batch, pad_size, vram_bytes, false)
+    clamp_batch_xfer(user_batch, pad_size, vram_bytes, false, None)
 }
 
 fn clamp_batch_xfer(
@@ -181,6 +195,7 @@ fn clamp_batch_xfer(
     pad_size: usize,
     vram_bytes: Option<u64>,
     host_roundtrip: bool,
+    difficulty: Option<u32>,
 ) -> u32 {
     let pad = pad_size.max(64);
     if vram_bytes.is_none() {
@@ -200,6 +215,9 @@ fn clamp_batch_xfer(
     if host_roundtrip {
         let xfer = ((MAX_OPENCL_XFER_BYTES / pad).max(1) as u32).min(MAX_PARALLEL_PADS);
         cap = cap.min(xfer);
+    }
+    if let Some(diff) = difficulty {
+        cap = cap.min(luck_batch_cap(diff));
     }
     if user_batch == 0 {
         cap.max(1)
@@ -267,10 +285,11 @@ impl CudaMixer {
         wave_start: u32,
         count: u32,
         stop: &AtomicBool,
+        stale: &AtomicBool,
     ) -> Result<bool> {
         let mut done = 0u32;
         while done < rounds {
-            if stop.load(Ordering::Relaxed) {
+            if work_aborted(stop, stale) {
                 let _ = unsafe { mesh_cuda_ctx_synchronize(self.ctx) };
                 return Ok(false);
             }
@@ -297,10 +316,11 @@ impl CudaMixer {
         wave_start: u32,
         count: u32,
         stop: &AtomicBool,
+        stale: &AtomicBool,
     ) -> Result<bool> {
         let mut done = 0u32;
         while done < rounds {
-            if stop.load(Ordering::Relaxed) {
+            if work_aborted(stop, stale) {
                 let _ = unsafe { mesh_cuda_ctx_synchronize(self.ctx) };
                 return Ok(false);
             }
@@ -331,13 +351,14 @@ impl CudaMixer {
         start_nonce: u64,
         batch: u32,
         stop: &AtomicBool,
+        stale: &AtomicBool,
     ) -> Result<Option<u64>> {
         let Some(host) =
-            crate::host_pads::fill_pads_parallel(commitment, params, start_nonce, batch, stop)
+            crate::host_pads::fill_pads_parallel(commitment, params, start_nonce, batch, stop, stale)
         else {
             return Ok(None);
         };
-        self.mix_filled_pads(host, difficulty, params, start_nonce, batch, stop)
+        self.mix_filled_pads(host, difficulty, params, start_nonce, batch, stop, stale)
     }
 
     /// Mix pads already Blake3-filled on the host. Fold samples stay on-device
@@ -350,6 +371,7 @@ impl CudaMixer {
         start_nonce: u64,
         batch: u32,
         stop: &AtomicBool,
+        stale: &AtomicBool,
     ) -> Result<Option<u64>> {
         let pad_len = params.scratchpad_size;
         let bytes = pad_len.saturating_mul(batch as usize);
@@ -372,15 +394,15 @@ impl CudaMixer {
             bail!("CUDA upload range failed (rc={rc})");
         }
         let rounds = params.mix_rounds as u32;
-        if !self.mix_range_interruptible(pad_len, rounds, 0, batch, stop)? {
+        if !self.mix_range_interruptible(pad_len, rounds, 0, batch, stop, stale)? {
             return Ok(None);
         }
         if params.version >= 2
-            && !self.mix_reverse_interruptible(pad_len, rounds, 0, batch, stop)?
+            && !self.mix_reverse_interruptible(pad_len, rounds, 0, batch, stop, stale)?
         {
             return Ok(None);
         }
-        if stop.load(Ordering::Relaxed) {
+        if work_aborted(stop, stale) {
             return Ok(None);
         }
 
@@ -444,7 +466,7 @@ impl CudaMixer {
 
         let mut found = u64::MAX;
         for i in 0..n {
-            if stop.load(Ordering::Relaxed) {
+            if work_aborted(stop, stale) {
                 return Ok(None);
             }
             let packed = &samples[i * pitch..(i + 1) * pitch];
@@ -962,14 +984,15 @@ impl ActiveMix {
         start_nonce: u64,
         batch: u32,
         stop: &AtomicBool,
+        stale: &AtomicBool,
     ) -> Result<Option<u64>> {
         match self {
             #[cfg(mesh_cuda)]
             ActiveMix::Cuda(cuda) => {
-                cuda.mix_filled_pads(host, difficulty, params, start_nonce, batch, stop)
+                cuda.mix_filled_pads(host, difficulty, params, start_nonce, batch, stop, stale)
             }
             ActiveMix::OpenCl(ocl) => {
-                ocl.mix_filled_pads(host, difficulty, params, start_nonce, batch, stop)
+                ocl.mix_filled_pads(host, difficulty, params, start_nonce, batch, stop, stale)
             }
             ActiveMix::Cpu => bail!("CPU mix does not take prefilled pads"),
         }
@@ -1142,7 +1165,7 @@ pub fn run_rpc_loop(cfg: MinerConfig, stop: Arc<AtomicBool>, tx: Sender<MinerEve
         if urls.is_empty() {
             urls = mesh_types::prefer_mine_rpc_urls();
             if let Some(extra) = discover_rpc_edges(urls.first().map(|s| s.as_str()).unwrap_or("")) {
-                urls = mesh_types::edge_first_rpc_urls(&mesh_types::merge_rpc_urls(&urls, &extra));
+                urls = mesh_types::public_pool_first(&mesh_types::merge_rpc_urls(&urls, &extra));
             }
         }
         urls
@@ -1212,7 +1235,7 @@ pub fn run_rpc_loop(cfg: MinerConfig, stop: Arc<AtomicBool>, tx: Sender<MinerEve
         let (_dev, mix, status) = workers.into_iter().next().unwrap();
         let _ = tx.send(MinerEvent::Status(status));
         if let Some(v) = mix.vram_bytes() {
-            let b = clamp_batch_xfer(cfg.batch, meshhash_cpu::SCRATCHPAD_SIZE, Some(v), false);
+            let b = clamp_batch_xfer(cfg.batch, meshhash_cpu::SCRATCHPAD_SIZE, Some(v), false, None);
             let _ = tx.send(MinerEvent::Status(format!(
                 "VRAM {} → up to {b} parallel pads (batch 0 = auto)",
                 format_bytes(v)
@@ -1234,7 +1257,7 @@ pub fn run_rpc_loop(cfg: MinerConfig, stop: Arc<AtomicBool>, tx: Sender<MinerEve
         let _ = tx.send(MinerEvent::Status(format!("[{i}] {status}")));
         let batch = cfg.batch.max(0); // 0 = auto
         if let Some(v) = mix.vram_bytes() {
-            let b = clamp_batch_xfer(batch, meshhash_cpu::SCRATCHPAD_SIZE, Some(v), false);
+            let b = clamp_batch_xfer(batch, meshhash_cpu::SCRATCHPAD_SIZE, Some(v), false, None);
             let _ = tx.send(MinerEvent::Status(format!(
                 "[{i}] VRAM {} → up to {b} parallel pads (batch 0 = auto)",
                 format_bytes(v)
@@ -1329,7 +1352,7 @@ fn run_single_worker(
             Some(tx),
             |batch_n, _elapsed| {
                 let hs = window.push(batch_n as u64);
-                if window.should_send() {
+                if window.should_send() && hs > 0.05 {
                     let (cpu_hs, gpu_hs) = if is_cpu {
                         (hs, 0.0)
                     } else {
@@ -1399,7 +1422,7 @@ fn run_worker_loop(
             None,
             |batch_n, _elapsed| {
                 let hs = window.push(batch_n as u64);
-                if window.should_send() {
+                if window.should_send() && hs > 0.05 {
                     let _ = tx.send(WorkerEvent::Hashrate { worker, hs });
                 }
             },
@@ -1529,14 +1552,16 @@ fn mine_one_rpc(
         params.scratchpad_size,
         mix.vram_bytes(),
         mix.host_roundtrip_fold(),
+        Some(tmpl.difficulty),
     );
     tracing::debug!(
         batch,
         pad = params.scratchpad_size,
         vram = ?mix.vram_bytes(),
+        diff = tmpl.difficulty,
         light = tmpl.light_pow,
         pow_version,
-        "pow batch scaled to device VRAM"
+        "pow batch scaled to device VRAM and difficulty"
     );
     let job_height = block.header.height;
     let stale = Arc::new(AtomicBool::new(false));
@@ -1570,6 +1595,20 @@ fn mine_one_rpc(
     if tip_moved(rpc, job_height) {
         tracing::debug!(height = job_height, "tip moved during Fusion seal");
         return Ok(None);
+    }
+    if mesh_types::exam_required_for_block(job_height) {
+        if let Some(tx) = exam_tx {
+            let hint = crate::exam::ExamHint {
+                height: tmpl.height,
+                scenario: tmpl.exam_scenario.clone(),
+                title: tmpl.exam_title.clone(),
+                payload_hex: tmpl.exam_payload_hex.clone(),
+                job_id: tmpl.exam_job_id.clone(),
+            };
+            if !crate::exam::ensure_exam_match(rpc, payout, &hint, tx) {
+                bail!("exam MATCH required before submitblock at height {job_height}");
+            }
+        }
     }
     let body = json!({ "block_hex": hex::encode(bincode::serialize(&block)?) });
     let mut req = ureq::post(&format!(
@@ -1647,8 +1686,10 @@ fn search_nonces(
         {
             let n = batch.min((max_nonces - start) as u32);
             let t0 = Instant::now();
-            let found = search_batch_once(commitment, difficulty, params, start, n, mix, stop)?;
-            on_batch(n, t0.elapsed());
+            let found = search_batch_once(commitment, difficulty, params, start, n, mix, stop, stale)?;
+            if !stale.load(Ordering::Relaxed) {
+                on_batch(n, t0.elapsed());
+            }
             if let Some(nonce) = found {
                 return Ok(Some(nonce));
             }
@@ -1663,11 +1704,13 @@ fn search_nonces(
     if first_n == 0 {
         return Ok(None);
     }
+    let fill0 = Instant::now();
     let Some(mut host) =
-        crate::host_pads::fill_pads_parallel(commitment, params, start, first_n, stop)
+        crate::host_pads::fill_pads_parallel(commitment, params, start, first_n, stop, stale)
     else {
         return Ok(None);
     };
+    let first_fill = fill0.elapsed();
     while start < max_nonces
         && !stop.load(Ordering::Relaxed)
         && !stale.load(Ordering::Relaxed)
@@ -1690,16 +1733,24 @@ fn search_nonces(
                         next_start,
                         nn,
                         stop,
+                        stale,
                     )
                 })
             });
-            let found = mix.mix_filled_pads(host, difficulty, params, start, n, stop)?;
+            let found = mix.mix_filled_pads(host, difficulty, params, start, n, stop, stale)?;
             if let Some(h) = fill_h {
                 next_host = h.join().unwrap_or(None);
             }
             Ok(found)
         })?;
-        on_batch(n, t0.elapsed());
+        if !stale.load(Ordering::Relaxed) {
+            let elapsed = if start == 0 {
+                first_fill + t0.elapsed()
+            } else {
+                t0.elapsed()
+            };
+            on_batch(n, elapsed);
+        }
         if let Some(nonce) = found {
             return Ok(Some(nonce));
         }
@@ -1721,14 +1772,15 @@ fn search_batch_once(
     batch: u32,
     mix: &mut ActiveMix,
     stop: &AtomicBool,
+    stale: &AtomicBool,
 ) -> Result<Option<u64>> {
     match mix {
         #[cfg(mesh_cuda)]
         ActiveMix::Cuda(cuda) => {
-            cuda.search_batch(commitment, difficulty, params, start_nonce, batch, stop)
+            cuda.search_batch(commitment, difficulty, params, start_nonce, batch, stop, stale)
         }
         ActiveMix::OpenCl(ocl) => {
-            ocl.search_batch(commitment, difficulty, params, start_nonce, batch, stop)
+            ocl.search_batch(commitment, difficulty, params, start_nonce, batch, stop, stale)
         }
         ActiveMix::Cpu => {
             // Leave cores for GPU pad-fill when both lanes run.
@@ -1750,12 +1802,13 @@ fn search_batch_once(
                     }
                     let found = &found;
                     let stop = stop;
+                    let stale = stale;
                     let commitment = *commitment;
                     let params = params.clone();
                     scope.spawn(move || {
                         let mut host_pad = vec![0u8; pad_len];
                         for nonce in start..end {
-                            if stop.load(Ordering::Relaxed) {
+                            if stop.load(Ordering::Relaxed) || stale.load(Ordering::Relaxed) {
                                 return;
                             }
                             if found.load(Ordering::Relaxed) != u64::MAX {
@@ -1871,11 +1924,39 @@ mod cuda_fold_tests {
         params.fold_salt = 11;
         let seed = mesh_types::Hash::digest(b"cuda-fold-audit");
         let stop = AtomicBool::new(false);
+        let stale = AtomicBool::new(false);
         let n = 4u32;
-        let host = crate::host_pads::fill_pads_parallel(&seed, &params, 0, n, &stop)
+        let host = crate::host_pads::fill_pads_parallel(&seed, &params, 0, n, &stop, &stale)
             .expect("fill pads");
-        cuda.mix_filled_pads(host, 64, &params, 0, n, &stop)
+        cuda.mix_filled_pads(host, 64, &params, 0, n, &stop, &stale)
             .expect("CUDA mix + fold extract must match CPU rematch");
         assert!(cuda.fold_checked);
+    }
+}
+
+#[cfg(test)]
+mod batch_cap_tests {
+    use super::*;
+
+    #[test]
+    fn low_difficulty_caps_gpu_auto_batch() {
+        let vram = Some(12 * 1024 * 1024 * 1024u64);
+        let pad = 16 * 1024 * 1024usize;
+        let low = clamp_batch_xfer(0, pad, vram, false, Some(1));
+        let mid = clamp_batch_xfer(0, pad, vram, false, Some(3));
+        let uncapped = clamp_batch_xfer(0, pad, vram, false, None);
+        assert_eq!(low, luck_batch_cap(1));
+        assert_eq!(mid, luck_batch_cap(3));
+        assert!(uncapped > low);
+        assert!(low <= MAX_LUCK_BATCH);
+        assert!(mid <= MAX_LUCK_BATCH);
+    }
+
+    #[test]
+    fn luck_cap_grows_with_difficulty_then_stops() {
+        assert_eq!(luck_batch_cap(1), 8);
+        assert_eq!(luck_batch_cap(2), 16);
+        assert_eq!(luck_batch_cap(3), 32);
+        assert_eq!(luck_batch_cap(10), MAX_LUCK_BATCH);
     }
 }

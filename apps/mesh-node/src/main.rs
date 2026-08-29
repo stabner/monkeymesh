@@ -196,7 +196,11 @@ async fn run_serve(
         .map(|s| parse_seed_addr(s))
         .collect::<Result<Vec<_>>>()?;
 
-    let mut chain = Chain::open_or_genesis(&chain_path)?;
+    let mut chain = if http_sync::join_official_enabled() {
+        http_sync::bootstrap_official_replica(&chain_path)?
+    } else {
+        Chain::open_or_genesis(&chain_path)?
+    };
     if chain.apply_env_retarget_override()? {
         info!(
             interval = chain.retarget_params().interval,

@@ -89,6 +89,11 @@ pub enum AiJobKind {
     MlTrain,
 }
 
+/// Jobs that earn GPU-lane research units after useful-work height.
+pub fn is_paid_research_kind(kind: AiJobKind) -> bool {
+    matches!(kind, AiJobKind::ProtocolEval | AiJobKind::MlTrain)
+}
+
 /// Placeholder GPU PoW share (MeshHash-GPU) — credits GPU market only.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GpuShare {

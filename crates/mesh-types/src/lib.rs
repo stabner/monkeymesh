@@ -20,8 +20,8 @@ pub use governance::{
 };
 pub use hash::{Hash, HASH_LEN};
 pub use market::{
-    AiJobKind, AiJobReceipt, DeviceRole, GpuShare, MarketKind, NodeServiceAttestation,
-    NodeServiceKind,
+    is_paid_research_kind, AiJobKind, AiJobReceipt, DeviceRole, GpuShare, MarketKind,
+    NodeServiceAttestation, NodeServiceKind,
 };
 pub use payout::{
     coinbase_lane, coinbase_payout_label, gpu_vault_address, is_gpu_vault_address,
@@ -73,25 +73,40 @@ pub const EXAM_LANE_UNITS: u64 = 1_000;
 /// Share of the GPU 45% reserved for rematched exams (CPU helpers on the network).
 /// Remainder is the finder's Fusion lane-B credit. Override is a height gate, not BPS.
 pub const HELPER_EXAM_FLOOR_BPS: u16 = 5_000; // 50% of GPU lane
+/// Height where homework starts to count on public testnet (tip was ~37853).
+/// Env: `MESH_USEFUL_WORK_HEIGHT`.
+pub const DEFAULT_USEFUL_WORK_HEIGHT: u64 = 39_000;
+/// Verified brain / protocol-eval job — same unit weight as one exam MATCH.
+pub const RESEARCH_LANE_UNITS: u64 = 1_000;
 /// When set (`MESH_GPU_EXAM_PAY_HEIGHT`), Fusion finder credit is added only if
-/// that address already has a rematched exam score. Default: off (`u64::MAX`).
-/// Turns on after exams MATCH reliably — otherwise GPU 45% would sit in the vault.
-pub const DEFAULT_GPU_EXAM_PAY_HEIGHT: u64 = u64::MAX;
-/// Helper floor (exam half of GPU 45%) — **off**. Live split is 45/45/10
-/// (Fusion seal / GPU work / nodes). Set `MESH_HELPER_FLOOR_HEIGHT=1` to restore.
-pub const DEFAULT_HELPER_FLOOR_HEIGHT: u64 = u64::MAX;
+/// that address already has a rematched exam score. Default: useful-work height.
+pub const DEFAULT_GPU_EXAM_PAY_HEIGHT: u64 = DEFAULT_USEFUL_WORK_HEIGHT;
+/// Helper floor (exam half of GPU 45%). Default: useful-work height.
+pub const DEFAULT_HELPER_FLOOR_HEIGHT: u64 = DEFAULT_USEFUL_WORK_HEIGHT;
 
-pub fn gpu_exam_pay_height() -> u64 {
-    match std::env::var("MESH_GPU_EXAM_PAY_HEIGHT") {
+fn parse_height_env(name: &str, default: u64) -> u64 {
+    match std::env::var(name) {
         Ok(v) => {
             let t = v.trim();
             if t.is_empty() {
-                return DEFAULT_GPU_EXAM_PAY_HEIGHT;
+                return default;
             }
-            t.parse::<u64>().unwrap_or(DEFAULT_GPU_EXAM_PAY_HEIGHT)
+            t.parse::<u64>().unwrap_or(default)
         }
-        Err(_) => DEFAULT_GPU_EXAM_PAY_HEIGHT,
+        Err(_) => default,
     }
+}
+
+pub fn useful_work_height() -> u64 {
+    parse_height_env("MESH_USEFUL_WORK_HEIGHT", DEFAULT_USEFUL_WORK_HEIGHT)
+}
+
+pub fn useful_work_active(height: u64) -> bool {
+    height >= useful_work_height()
+}
+
+pub fn gpu_exam_pay_height() -> u64 {
+    parse_height_env("MESH_GPU_EXAM_PAY_HEIGHT", useful_work_height())
 }
 
 /// GPU 45% Fusion finder credit requires a rematched exam (anti CPU-only vacuum).
@@ -99,17 +114,13 @@ pub fn gpu_pay_requires_exam(height: u64) -> bool {
     height >= gpu_exam_pay_height()
 }
 
+/// Finder must MATCH the immune exam before `submitblock` (useful-work height).
+pub fn exam_required_for_block(height: u64) -> bool {
+    useful_work_active(height)
+}
+
 pub fn helper_floor_height() -> u64 {
-    match std::env::var("MESH_HELPER_FLOOR_HEIGHT") {
-        Ok(v) => {
-            let t = v.trim();
-            if t.is_empty() {
-                return DEFAULT_HELPER_FLOOR_HEIGHT;
-            }
-            t.parse::<u64>().unwrap_or(DEFAULT_HELPER_FLOOR_HEIGHT)
-        }
-        Err(_) => DEFAULT_HELPER_FLOOR_HEIGHT,
-    }
+    parse_height_env("MESH_HELPER_FLOOR_HEIGHT", useful_work_height())
 }
 /// Wiped testnet: height 0 stays 40/40/20; height ≥ 1 is isolated 45/45/10.
 pub const DEFAULT_FAIR_SPLIT_HEIGHT: u64 = 1;
@@ -208,9 +219,20 @@ pub fn default_seed_p2p() -> String {
     format!("{SEED_DNS}:{SEED_P2P_PORT}")
 }
 
+/// Public HTTPS GBT pool (WAN :18081 / :18083 often time out).
+pub const PUBLIC_POOL_URL: &str = "https://eu.hashmonkeys.cloud";
+
 /// Default wallet/miner RPC base URL.
 pub fn default_seed_rpc_url() -> String {
     format!("http://{SEED_DNS}:{SEED_RPC_PORT}")
+}
+
+pub fn looks_like_public_pool(url: &str) -> bool {
+    let n = url.to_ascii_lowercase();
+    n.contains("eu.hashmonkeys.cloud")
+        && !n.contains(":18080")
+        && !n.contains(":18081")
+        && !n.contains(":18083")
 }
 
 /// Default edge RPC base (templates/submit load-split).
@@ -285,9 +307,32 @@ pub fn edge_first_rpc_urls(urls: &[String]) -> Vec<String> {
     edges
 }
 
-/// Mine-preferred defaults: edge before seed so GBT/submit hit `:18081` first.
+/// Public pool first, then seed, then LAN edges. WAN `:18081`/`:18083` time out (~20s).
+pub fn public_pool_first(urls: &[String]) -> Vec<String> {
+    let mut pools = Vec::new();
+    let mut rest = Vec::new();
+    for u in urls {
+        let t = u.trim().trim_end_matches('/').to_string();
+        if t.is_empty() {
+            continue;
+        }
+        if looks_like_public_pool(&t) {
+            if !pools.iter().any(|x| x == &t) {
+                pools.push(t);
+            }
+        } else if !rest.iter().any(|x| x == &t) && !pools.iter().any(|x| x == &t) {
+            rest.push(t);
+        }
+    }
+    pools.extend(rest);
+    pools
+}
+
+/// Mine-preferred defaults: HTTPS pool first (reachable from the internet).
 pub fn prefer_mine_rpc_urls() -> Vec<String> {
-    edge_first_rpc_urls(&default_rpc_urls())
+    let mut urls = vec![PUBLIC_POOL_URL.to_string()];
+    urls = merge_rpc_urls(&urls, &default_rpc_urls());
+    public_pool_first(&urls)
 }
 
 /// Merge discovered edge URLs (e.g. from `/v1/getnodeinfo.edges`) into a list.
@@ -415,6 +460,17 @@ pub fn parse_wrong_shard_try_url(err: &str) -> Option<String> {
 #[cfg(test)]
 mod shard_tests {
     use super::*;
+
+    #[test]
+    fn prefer_mine_puts_https_pool_first() {
+        let urls = prefer_mine_rpc_urls();
+        assert_eq!(urls[0], PUBLIC_POOL_URL);
+        let mixed = public_pool_first(&[
+            "http://seednode.hashmonkeys.cloud:18081".into(),
+            PUBLIC_POOL_URL.into(),
+        ]);
+        assert_eq!(mixed[0], PUBLIC_POOL_URL);
+    }
 
     #[test]
     fn prefer_pins_worker_shard_first() {

@@ -1,6 +1,6 @@
 # Network collab — CPU miners + GPU farms (Build/35)
 
-**Status: helper floor OFF** — product truth `Build/33_WHITEPAPER.md`. Live pay is **45 / 45 / 10**. Set `MESH_HELPER_FLOOR_HEIGHT=1` only if you want the old exam split back.
+**Status: helper floor ON from height 39000** (`MESH_USEFUL_WORK_HEIGHT`). Product truth `Build/33_WHITEPAPER.md`. Before that height live pay is **45 / 45 / 10** to the finder; after it, half of GPU 45% pays rematched exams and brain jobs, and `submitblock` requires exam MATCH.
 
 Goal: a GPU hall and a CPU box on the same mesh **help each other**, without pretending the chain can see which silicon ran a hash.
 

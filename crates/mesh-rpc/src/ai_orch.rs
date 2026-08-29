@@ -1516,6 +1516,13 @@ async fn research_tick(st: &RpcState) {
 
     let mut q = st.ai.lock().await;
     if q.workers().next().is_none() {
+        if let Some(brain) = q.brain_mut() {
+            let offset = (height.wrapping_mul(17) % 3500) as u32;
+            match brain.local_step(height, 2, 64, offset) {
+                Ok(ep) => tracing::info!(epoch = ep, height, "seed stepped shared brain (no workers)"),
+                Err(e) => tracing::debug!(error = %e, "seed brain step skipped"),
+            }
+        }
         return;
     }
 
@@ -1683,10 +1690,7 @@ fn fill_ai_queue(
     };
 
     let enqueue_brain = |q: &mut mesh_ai::JobQueue| -> bool {
-        if !has_brain {
-            return false;
-        }
-        let use_v2 = q.should_enqueue_brain_v2(prefer_v2, v2_min, v2_vram_floor);
+        let use_v2 = has_brain && q.should_enqueue_brain_v2(prefer_v2, v2_min, v2_vram_floor);
         if use_v2 {
             if q.shared_v2_jobs_queued_count() >= 1 {
                 return false;

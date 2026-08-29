@@ -17,7 +17,7 @@ MonkeyMesh is a home-PC coin and a small adaptive compute mesh.
 - **Nodes earn only for useful work** (relay, AI routing, snapshot, archive), paid to a wallet the operator sets.
 - **AI never moves** emission split, opcodes, or the tip. Soft knobs only.
 
-It is **not** a foundation-model trainer, a marketplace, a chat agent, or “AI finds the block.”
+It is **not** a foundation-model trainer, a chat agent, or “AI finds the block.” From height 39000 it **is** a paid homework mesh: exam MATCH to submit, helper-floor MESH, and a Work market for sending tips.
 
 ## 2. Why Fusion (not RandomX, not KawPow)
 
@@ -52,19 +52,19 @@ A warehouse of only CPUs or only GPUs is strictly weaker than a normal gaming PC
 
 Target spacing: **5 seconds**. Difficulty retargets on a human-gated schedule. Soft AI may nudge practice intensity, never BPS.
 
-**AI is not the clock.** A block can land with zero AI jobs in flight. Gating the tip on “a verified AI job finished” would stall the chain and hand block production to the job board.
+**AI is not the Fusion clock.** The hash still finds the block. From height **39000** the **immune exam MATCH is required to submit** — a block without homework is rejected. That is useful work on the tip, not a second PoW.
 
 ## 4. How AI is paid (and verified)
 
 | Job | Who runs it | Who verifies | What it may change |
 |-----|-------------|--------------|--------------------|
-| Immune exam (1 per address/height) | Optional homework | Same deterministic sim on the node | 0 MESH while helper floor is off |
-| Fusion GPU work | Block finder (GPU wave) | In the Fusion digest | GPU 45% |
-| Shared brain / other AI | Optional | Seed re-runs | Brain epoch; **0 market units** after height 1 |
+| Immune exam (1 per address/height) | Required to submit from 39000 | Same deterministic sim on the node | Helper-floor MESH (half of GPU 45%) |
+| Fusion GPU work | Block finder (GPU wave) | In the Fusion digest | GPU 45% (finder needs exam MATCH) |
+| Shared brain / protocol eval | Miner research (on by default) + seed stepper | Seed re-runs | Brain epoch **and** research units into the helper floor |
 
-After height **1**: **45% Fusion seal / 45% GPU work / 10% nodes**. Research cannot tilt the coin toward CPU or GPU.
+After height **1**: **45% Fusion seal / 45% GPU work / 10% nodes**. From **39000** the GPU 45% splits: exam/brain helpers vs Fusion finder. Research still cannot move BPS, opcodes, or difficulty.
 
-Honesty: these are small, bit-exact MLPs and protocol sims — not ChatGPT-scale training. The public explorer **retired** the giant “four guardians / 0 epochs” board. That UI was not a live training run.
+Honesty: these are small, bit-exact MLPs and protocol sims — not ChatGPT-scale training. The explorer **Market** tab shows epoch, paid exams, and how to send MESH for a check.
 
 ## 5. How nodes are paid
 

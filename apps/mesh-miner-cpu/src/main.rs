@@ -113,12 +113,11 @@ fn main() -> Result<()> {
                 urls.push(u);
             }
         }
-        urls = mesh_types::edge_first_rpc_urls(&urls);
-        // Discover advertised edges from the first reachable tip (Build/27 B1).
+        urls = mesh_types::public_pool_first(&urls);
         if let Some(extra) = discover_rpc_edges(urls.first().map(|s| s.as_str()).unwrap_or("")) {
-            urls = mesh_types::edge_first_rpc_urls(&mesh_types::merge_rpc_urls(&urls, &extra));
+            urls = mesh_types::public_pool_first(&mesh_types::merge_rpc_urls(&urls, &extra));
         }
-        info!(?urls, "RPC mining mode (edge-first)");
+        info!(?urls, "RPC mining mode (HTTPS pool first)");
         mined = mine_rpc_loop(&urls, &payout, &miner_id, args.max_nonces, target, &stop)?;
     } else {
         let mut chain = Chain::open_or_genesis(&args.chain)?;
@@ -401,6 +400,9 @@ fn mine_rpc_one(
                 return Ok(false);
             }
             info!(height = job_height, nonce, "Fusion seal");
+            if mesh_types::exam_required_for_block(job_height) {
+                submit_cpu_exam(rpc, payout, &tmpl);
+            }
             let body = json!({ "block_hex": hex::encode(bincode::serialize(&block)?) });
             let mut req = ureq::post(&format!("{rpc}/v1/submitblock?address={addr_q}"))
                 .timeout(Duration::from_secs(30));

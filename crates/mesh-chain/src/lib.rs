@@ -46,7 +46,8 @@ pub use store::{
 pub use transfer::{build_signed_payment, build_slash_settle};
 pub use mesh_types::COINBASE_MATURITY;
 pub use validate::{
-    validate_block, validate_mempool_tx, validate_tx, MAX_BLOCK_TXS, MAX_MEMO_BYTES,
+    validate_block, validate_block_ex, validate_mempool_tx, validate_tx, MAX_BLOCK_TXS,
+    MAX_MEMO_BYTES,
 };
 
 use mesh_crypto::Keypair;
@@ -171,6 +172,11 @@ impl Chain {
             orphans: std::collections::HashMap::new(),
             finality,
         })
+    }
+
+    /// Remove on-disk chain files (height-0 private genesis, corrupt replica).
+    pub fn wipe_store_files(path: impl AsRef<Path>) {
+        ChainStore::wipe_files(path);
     }
 
     pub fn open_or_genesis(path: impl AsRef<Path>) -> Result<Self, ChainError> {
@@ -321,7 +327,7 @@ impl Chain {
                 let expected_diff = tip.header.difficulty;
                 let old = self.pop_tip_checked()?;
                 self.remember_orphan(old);
-                self.append_validated(block, Some(&parent), Some(expected_diff))?;
+                self.append_validated(block, Some(&parent), Some(expected_diff), false)?;
                 tracing::info!(
                     height = parent.header.height.saturating_add(1),
                     id = %id,
@@ -340,17 +346,62 @@ impl Chain {
                 return Ok(false);
             }
             let expected_diff = self.next_difficulty();
-            self.append_validated(block, Some(&tip), Some(expected_diff))?;
+            self.append_validated(block, Some(&tip), Some(expected_diff), false)?;
         } else {
             if block.header.height != 0 {
                 return Err(ChainError::InvalidBlock(
                     "first block must be genesis".into(),
                 ));
             }
-            self.append_validated(block, None, None)?;
+            self.append_validated(block, None, None, false)?;
         }
         let _ = self.try_connect_orphans();
         Ok(true)
+    }
+
+    /// Import a block from the official seed HTTP snapshot.
+    ///
+    /// Header difficulty is trusted (live testnet retarget 20→15). Fusion PoW is
+    /// skipped for historical IBD (`verify_pow = false`); the tail is fully hashed.
+    pub fn import_official_snapshot_block(
+        &mut self,
+        block: Block,
+        verify_pow: bool,
+    ) -> Result<bool, ChainError> {
+        let header_diff = block.header.difficulty;
+        let id = block.id();
+        if let Some(tip) = self.store.tip() {
+            if id == tip.id() {
+                return Ok(false);
+            }
+            if block.header.height != tip.header.height + 1 || block.header.prev_hash != tip.id() {
+                return Ok(false);
+            }
+            self.append_validated(block, Some(&tip), Some(header_diff), !verify_pow)?;
+        } else {
+            if block.header.height != 0 {
+                return Err(ChainError::InvalidBlock(
+                    "first block must be genesis".into(),
+                ));
+            }
+            self.append_validated(block, None, None, !verify_pow)?;
+        }
+        Ok(true)
+    }
+
+    pub fn set_bulk_import(&mut self, bulk: bool) {
+        self.store.set_bulk_import(bulk);
+    }
+
+    /// Load official UTXO snapshot + hot block tail (skips replaying 28k Fusion blocks).
+    pub fn install_official_prune(
+        &mut self,
+        genesis: Hash,
+        utxos: std::collections::HashMap<OutPoint, Utxo>,
+        hot_blocks: Vec<Block>,
+    ) -> Result<(), ChainError> {
+        self.store
+            .install_official_prune(genesis, utxos, hot_blocks)
     }
 
     fn append_validated(
@@ -358,15 +409,17 @@ impl Chain {
         block: Block,
         prev: Option<&Block>,
         expected_diff: Option<u32>,
+        skip_pow: bool,
     ) -> Result<(), ChainError> {
         let cbs = self.recent_coinbase_heights();
-        validate_block(
+        validate_block_ex(
             &block,
             prev,
             self.light_pow,
             self.store.utxos(),
             expected_diff,
             &cbs,
+            skip_pow,
         )?;
         self.reject_locked_spends(&block)?;
         self.store.append(&block)?;
@@ -424,11 +477,11 @@ impl Chain {
                     self.orphans.remove(&b.id());
                     let parent = self.store.tip();
                     let expected = parent.as_ref().map(|_| self.next_difficulty());
-                    if let Err(e) = self.append_validated(b, parent.as_ref(), expected) {
+                    if let Err(e) = self.append_validated(b, parent.as_ref(), expected, false) {
                         for old in ours {
                             let p = self.store.tip();
                             let exp = p.as_ref().map(|_| self.next_difficulty());
-                            let _ = self.append_validated(old, p.as_ref(), exp);
+                            let _ = self.append_validated(old, p.as_ref(), exp, false);
                         }
                         return Err(e);
                     }
@@ -1356,6 +1409,14 @@ impl Chain {
         // must not mint exam units from a job_id prefix.
         let weight = if !allow_soft_adapt {
             0
+        } else if mesh_types::useful_work_active(next_h) {
+            if mesh_types::is_exam_job_id(&receipt.job_id) {
+                mesh_types::EXAM_LANE_UNITS
+            } else if mesh_types::is_paid_research_kind(receipt.job_kind) {
+                mesh_types::RESEARCH_LANE_UNITS
+            } else {
+                0
+            }
         } else if mesh_types::fair_lane_split_active(next_h) {
             if mesh_types::is_exam_job_id(&receipt.job_id) {
                 mesh_types::EXAM_LANE_UNITS
@@ -1376,6 +1437,15 @@ impl Chain {
             let _ = self.maybe_auto_adapt_soft_envelopes()?;
         }
         Ok(true)
+    }
+
+    /// True if this address already MATCH'd the immune exam for `height`.
+    pub fn has_exam_receipt(&self, height: u64, worker: &mesh_types::Address) -> bool {
+        let id = mesh_types::exam_job_id(height, worker);
+        self.store
+            .ai_receipts()
+            .iter()
+            .any(|r| r.job_id == id)
     }
 
     /// Pending node-market weight for an operator address (0 if none).

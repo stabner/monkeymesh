@@ -1,5 +1,5 @@
 {
-  "rpc": "http://seednode.hashmonkeys.cloud:18081,http://seednode.hashmonkeys.cloud:18080",
+  "rpc": "https://eu.hashmonkeys.cloud",
   "address": "",
   "batch": 0,
   "max_nonces": 5000000,

@@ -462,16 +462,22 @@ impl OpenClMixer {
         start_nonce: u64,
         batch: u32,
         stop: &AtomicBool,
+        stale: &AtomicBool,
     ) -> Result<Option<u64>> {
         if batch == 0 || params.scratchpad_size < 64 {
             bail!("bad OpenCL search args");
         }
-        let Some(host) =
-            crate::host_pads::fill_pads_parallel(commitment, params, start_nonce, batch, stop)
-        else {
+        let Some(host) = crate::host_pads::fill_pads_parallel(
+            commitment,
+            params,
+            start_nonce,
+            batch,
+            stop,
+            stale,
+        ) else {
             return Ok(None);
         };
-        self.mix_filled_pads(host, difficulty, params, start_nonce, batch, stop)
+        self.mix_filled_pads(host, difficulty, params, start_nonce, batch, stop, stale)
     }
 
     pub fn mix_filled_pads(
@@ -482,6 +488,7 @@ impl OpenClMixer {
         start_nonce: u64,
         batch: u32,
         stop: &AtomicBool,
+        stale: &AtomicBool,
     ) -> Result<Option<u64>> {
         if batch == 0 || params.scratchpad_size < 64 {
             bail!("bad OpenCL search args");
@@ -509,13 +516,13 @@ impl OpenClMixer {
                 ),
                 "clEnqueueWriteBuffer pads",
             )?;
-            if stop.load(Ordering::Relaxed) {
+            if stop.load(Ordering::Relaxed) || stale.load(Ordering::Relaxed) {
                 return Ok(None);
             }
             self.enqueue_mix(self.kernel, pad_len, rounds, batch)?;
             let _ = (self.api.finish)(self.queue);
             if params.version >= 2 {
-                if stop.load(Ordering::Relaxed) {
+                if stop.load(Ordering::Relaxed) || stale.load(Ordering::Relaxed) {
                     return Ok(None);
                 }
                 self.enqueue_mix(self.kernel_rev, pad_len, rounds, batch)?;
@@ -547,6 +554,7 @@ impl OpenClMixer {
             start_nonce,
             difficulty,
             stop,
+            stale,
         ))
     }
 }

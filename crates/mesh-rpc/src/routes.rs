@@ -1286,6 +1286,21 @@ async fn submit_block(
         bincode::deserialize(&bytes).map_err(|e| bad(format!("bad block: {e}")))?;
     let accepted = {
         let mut c = st.chain.lock().await;
+        if mesh_types::exam_required_for_block(block.header.height) {
+            let finder = block
+                .txs
+                .first()
+                .and_then(|tx| tx.outputs.first())
+                .map(|o| o.address);
+            let Some(finder) = finder else {
+                return Err(bad("submitblock missing coinbase finder"));
+            };
+            if !c.has_exam_receipt(block.header.height, &finder) {
+                return Err(bad(
+                    "exam MATCH required before submitblock — run the immune exam sidecar",
+                ));
+            }
+        }
         c.accept_mined(block.clone())
             .map_err(|e| bad(e.to_string()))?
     };
@@ -1517,7 +1532,10 @@ async fn exam_status(State(st): State<RpcState>) -> Json<serde_json::Value> {
         "node_bps": mesh_types::node_market_bps_at(next_h),
         "exam_units": mesh_types::EXAM_LANE_UNITS,
         "fusion_gpu_units": mesh_types::FUSION_GPU_UNITS,
-        "note": "45% CPU finder / 45% GPU (Fusion lane B + one exam) / 10% nodes. Research cannot move BPS.",
+        "note": "From height 39000: exam MATCH is required to submit a block. Helper floor pays exam/brain units from the GPU 45%. Research still cannot move BPS.",
+        "useful_work_height": mesh_types::useful_work_height(),
+        "useful_work_active": mesh_types::useful_work_active(next_h),
+        "helper_floor": mesh_types::helper_floor_active(next_h),
         "recent": recent,
     }))
 }
@@ -2253,6 +2271,9 @@ async fn get_markets(State(st): State<RpcState>) -> Json<serde_json::Value> {
         "gpu_exam_market": if helper { exam.to_string() } else { String::new() },
         "gpu_fusion_market": if helper { fusion.to_string() } else { String::new() },
         "helper_floor": helper,
+        "useful_work_height": mesh_types::useful_work_height(),
+        "useful_work_active": mesh_types::useful_work_active(next),
+        "exam_required": mesh_types::exam_required_for_block(next),
         "coinbase_maturity": mesh_types::COINBASE_MATURITY,
         "node_market": mesh_chain::node_market_reward(next).to_string(),
         "deferred_gpu_vault": mesh_chain::deferred_gpu_vault().to_string(),

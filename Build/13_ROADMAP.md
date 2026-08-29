@@ -23,10 +23,10 @@ Phases 1–4 below are **shipped**. Do not list Fusion, 90/10, or the miner GUI 
 
 | Item | Spec | Disposition |
 |------|------|-------------|
-| MonkeyMind marketplace | Build/12, Build/17 | **Shelved** until verify + payments exist |
+| MonkeyMind marketplace | Build/12, Build/17 | **Shelved** as a full compute exchange. A thinner **Work market** (send MESH + paid exams/brain) is live from height 39000 |
 | MonkeyMesh Agent chat | Build/22 | **Removed** |
 | Guardian / quantum scoreboard as the Testnet page | Build/25, Build/26 | **Retired from public UI.** Optional research jobs may still run; they are not the live work |
-| AI as the only way to find a block | — | **Rejected** (stalls the clock, centralizes on the job board) |
+| AI as the only way to find a block | — | **Rejected** as the hash clock. Exam MATCH is required to *submit* from 39000; Fusion still finds the block |
 | Auto BPS / tip forks from AI | Build/21 | **Forbidden** |
 
 ## Now (public testnet)

@@ -24,6 +24,11 @@ pub fn set_gpu_host_threads(n: usize) {
     GPU_HOST_THREADS.store(n, Ordering::Relaxed);
 }
 
+#[inline]
+fn aborted(stop: &AtomicBool, stale: &AtomicBool) -> bool {
+    stop.load(Ordering::Relaxed) || stale.load(Ordering::Relaxed)
+}
+
 /// Contiguous host pads: `count * pad_len` bytes, filled in parallel.
 pub fn fill_pads_parallel(
     commitment: &Hash,
@@ -31,6 +36,7 @@ pub fn fill_pads_parallel(
     start_nonce: u64,
     count: u32,
     stop: &AtomicBool,
+    stale: &AtomicBool,
 ) -> Option<Vec<u8>> {
     let n = count as usize;
     let pad_len = params.scratchpad_size;
@@ -54,7 +60,7 @@ pub fn fill_pads_parallel(
             base += take;
             scope.spawn(move || {
                 for j in 0..take {
-                    if stop.load(Ordering::Relaxed) {
+                    if aborted(stop, stale) {
                         return;
                     }
                     let off = j * pad_len;
@@ -68,7 +74,7 @@ pub fn fill_pads_parallel(
             });
         }
     });
-    if stop.load(Ordering::Relaxed) {
+    if aborted(stop, stale) {
         None
     } else {
         Some(host)
@@ -82,6 +88,7 @@ pub fn fold_pads_parallel(
     start_nonce: u64,
     difficulty: u32,
     stop: &AtomicBool,
+    stale: &AtomicBool,
 ) -> Option<u64> {
     let pad_len = params.scratchpad_size;
     if pad_len == 0 || host.len() < pad_len {
@@ -107,7 +114,7 @@ pub fn fold_pads_parallel(
             let found = &found;
             scope.spawn(move || {
                 for j in 0..take {
-                    if stop.load(Ordering::Relaxed) || found.load(Ordering::Relaxed) != u64::MAX {
+                    if aborted(stop, stale) || found.load(Ordering::Relaxed) != u64::MAX {
                         return;
                     }
                     let off = j * pad_len;

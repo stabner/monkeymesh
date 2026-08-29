@@ -256,6 +256,8 @@ pub struct ChainStore {
     service_log: std::collections::VecDeque<mesh_types::NodeServiceAttestation>,
     /// Preferred on-chain slash settle txid (hex) from SlashMark gossip — runtime only.
     pending_slash_settles: HashMap<String, String>,
+    /// Replica IBD: skip per-block snap/ckpt/fsync until flushed.
+    bulk_import: bool,
 }
 
 impl ChainStore {
@@ -350,6 +352,7 @@ impl ChainStore {
             scores_epoch: 0,
             service_log: std::collections::VecDeque::with_capacity(64),
             pending_slash_settles: HashMap::new(),
+            bulk_import: false,
         };
         store.rebuild_utxos()?;
         Ok(store)
@@ -626,17 +629,20 @@ impl ChainStore {
         if self.genesis_hash == Hash::zero() && block.header.height == 0 {
             self.genesis_hash = block.id();
         }
-        // Soft meta (mempool trimmed) — O(meta), not O(full chain).
-        self.persist_meta()?;
-        self.dirty = false;
-        let _ = self.write_tip_snapshot_file();
-        // Keep checkpoint current when pruned (or once a ckpt file exists).
-        if self.pruned || Self::utxo_ckpt_path(&self.path).exists() {
-            let keep_from = self.hot_from_height();
-            let _ = self.write_utxo_checkpoint(keep_from);
+        let tick = !self.bulk_import || self.height() % 64 == 0;
+        if tick {
+            self.persist_meta()?;
+            let _ = self.write_tip_snapshot_file();
+            if self.pruned || Self::utxo_ckpt_path(&self.path).exists() {
+                let keep_from = self.hot_from_height();
+                let _ = self.write_utxo_checkpoint(keep_from);
+            }
+        } else {
+            self.dirty = true;
         }
-        // Opt-in auto cold-prune for non-archive edges (Build/27 N2).
-        self.maybe_auto_prune()?;
+        if !self.bulk_import {
+            self.maybe_auto_prune()?;
+        }
         Ok(())
     }
 
@@ -761,6 +767,57 @@ impl ChainStore {
 
     pub fn is_empty(&self) -> bool {
         self.data.blocks.is_empty()
+    }
+
+    pub fn set_bulk_import(&mut self, bulk: bool) {
+        self.bulk_import = bulk;
+        if !bulk {
+            let _ = self.persist_meta();
+            let _ = self.write_tip_snapshot_file();
+            if self.pruned || Self::utxo_ckpt_path(&self.path).exists() {
+                let keep_from = self.hot_from_height();
+                let _ = self.write_utxo_checkpoint(keep_from);
+            }
+            self.dirty = false;
+        }
+    }
+
+    /// Load an official seed UTXO snapshot + hot WAL tail (pruned replica).
+    /// UTXOs must already be at `hot_blocks` tip — bodies are not replayed onto the set.
+    pub fn install_official_prune(
+        &mut self,
+        genesis: Hash,
+        utxos: HashMap<OutPoint, Utxo>,
+        hot_blocks: Vec<Block>,
+    ) -> Result<(), ChainError> {
+        if hot_blocks.is_empty() {
+            return Err(ChainError::Store("official snapshot missing hot blocks".into()));
+        }
+        for pair in hot_blocks.windows(2) {
+            if pair[1].header.height != pair[0].header.height + 1 {
+                return Err(ChainError::Store("official snapshot heights not consecutive".into()));
+            }
+            if pair[1].header.prev_hash != pair[0].id() {
+                return Err(ChainError::Store("official snapshot prev-hash break".into()));
+            }
+        }
+        if genesis == Hash::zero() {
+            return Err(ChainError::Store("official snapshot genesis missing".into()));
+        }
+        if utxos.is_empty() {
+            return Err(ChainError::Store("official snapshot UTXO set empty".into()));
+        }
+        self.genesis_hash = genesis;
+        self.utxos = utxos;
+        self.data.blocks = hot_blocks;
+        self.pruned = true;
+        self.bulk_import = false;
+        write_blocks_wal(&Self::wal_path(&self.path), &self.data.blocks)?;
+        self.write_utxo_checkpoint(self.hot_from_height())?;
+        self.persist_meta()?;
+        let _ = self.write_tip_snapshot_file();
+        self.dirty = false;
+        Ok(())
     }
 
     pub fn utxos(&self) -> &HashMap<OutPoint, Utxo> {
@@ -903,6 +960,19 @@ impl ChainStore {
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Delete WAL / meta / snap / utxo checkpoint for this store path.
+    /// Safe if files are missing. Caller must drop any open `Chain` first.
+    pub fn wipe_files(path: impl AsRef<Path>) {
+        let path = path.as_ref();
+        let _ = fs::remove_file(path);
+        let _ = fs::remove_file(Self::meta_path(path));
+        let _ = fs::remove_file(Self::wal_path(path));
+        let _ = fs::remove_file(Self::utxo_ckpt_path(path));
+        let _ = fs::remove_file(path.with_extension("snap.json"));
+        let _ = fs::remove_file(path.with_extension("finality.json"));
+        let _ = fs::remove_file(path.with_extension("bin.monolithic-bak"));
     }
 
     pub fn utxo_snapshot(&self) -> HashMap<OutPoint, Utxo> {

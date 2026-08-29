@@ -84,7 +84,7 @@ fn default_bottom_h() -> f32 {
     BOTTOM_H_DEFAULT
 }
 fn default_ai_research() -> bool {
-    false
+    true
 }
 
 impl Default for GuiConfig {
@@ -123,6 +123,7 @@ struct MinerApp {
     /// Smoothed Fusion mix (no exam-eq).
     gpu_mix_ema: f64,
     last_exam_at: Option<Instant>,
+    last_hashrate_at: Option<Instant>,
     blocks_found: u64,
     ai_jobs_done: u64,
     /// Shared network brain epoch (from last verified AI job).
@@ -275,6 +276,7 @@ fn main() -> eframe::Result<()> {
                 gpu_hashrate: 0.0,
                 gpu_mix_ema: 0.0,
                 last_exam_at: None,
+                last_hashrate_at: None,
                 blocks_found: 0,
                 ai_jobs_done: 0,
                 brain_epoch: None,
@@ -577,6 +579,7 @@ impl MinerApp {
         self.gpu_hashrate = 0.0;
         self.gpu_mix_ema = 0.0;
         self.last_exam_at = None;
+        self.last_hashrate_at = None;
         self.blocks_found = 0;
         self.ai_jobs_done = 0;
         self.brain_epoch = None;
@@ -675,6 +678,7 @@ impl MinerApp {
             self.gpu_hashrate = 0.0;
             self.gpu_mix_ema = 0.0;
             self.last_exam_at = None;
+            self.last_hashrate_at = None;
             self.status = "Stopped".into();
             self.status_ok = true;
         }
@@ -692,6 +696,7 @@ impl MinerApp {
                     if self.stopping {
                         continue;
                     }
+                    self.last_hashrate_at = Some(Instant::now());
                     if cpu_hs > 0.0 {
                         self.cpu_hashrate = cpu_hs;
                     }
@@ -1093,6 +1098,17 @@ impl MinerApp {
 impl eframe::App for MinerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.drain();
+        if self.mining
+            && !self.stopping
+            && self
+                .last_hashrate_at
+                .is_some_and(|t| t.elapsed() > Duration::from_secs(45))
+        {
+            // Only clear after a long gap (stale-wave / exam / GBT). 10s zeroes a live tile.
+            self.cpu_hashrate = 0.0;
+            self.gpu_hashrate = 0.0;
+            self.gpu_mix_ema = 0.0;
+        }
         self.drain_pay();
         self.drain_node();
         self.maybe_poll_pay();
@@ -1439,7 +1455,7 @@ impl eframe::App for MinerApp {
                                 field_label(ui, "Hardware roles");
                                 ui.label(
                                     body_text(
-                                        "Tick a GPU: one Fusion path (GPU wave + CPU seal). Same H/s as the GPU CLI. Research is optional and off by default so it does not steal the card.",
+                                        "Tick a GPU: one Fusion path (GPU wave + CPU seal). Research is on by default — exam MATCH is required to submit a block from height 39000, and brain jobs pay from the GPU helper floor.",
                                         12.0,
                                     )
                                     .color(TEXT_BLUE),
@@ -1451,7 +1467,7 @@ impl eframe::App for MinerApp {
                                             self.toggle_family_cpu(cpu);
                                         }
                                         let mut research = self.cfg.ai_research;
-                                        if pointer(ui.checkbox(&mut research, "Research (optional)")).changed()
+                                        if pointer(ui.checkbox(&mut research, "Research (pays MESH)")).changed()
                                         {
                                             self.cfg.ai_research = research;
                                             self.persist_selection();

@@ -26,7 +26,28 @@ pub fn validate_block(
     expected_difficulty: Option<u32>,
     coinbase_heights: &HashMap<OutPoint, u64>,
 ) -> Result<(), ChainError> {
-    validate_block_header(block, prev, light_pow, expected_difficulty)?;
+    validate_block_ex(
+        block,
+        prev,
+        light_pow,
+        utxos,
+        expected_difficulty,
+        coinbase_heights,
+        false,
+    )
+}
+
+/// Same as [`validate_block`] but can skip Fusion PoW (official HTTP replica IBD).
+pub fn validate_block_ex(
+    block: &Block,
+    prev: Option<&Block>,
+    light_pow: bool,
+    utxos: &HashMap<OutPoint, Utxo>,
+    expected_difficulty: Option<u32>,
+    coinbase_heights: &HashMap<OutPoint, u64>,
+    skip_pow: bool,
+) -> Result<(), ChainError> {
+    validate_block_header_ex(block, prev, light_pow, expected_difficulty, skip_pow)?;
     validate_block_txs(block, utxos, coinbase_heights)?;
     Ok(())
 }
@@ -36,6 +57,16 @@ pub fn validate_block_header(
     prev: Option<&Block>,
     light_pow: bool,
     expected_difficulty: Option<u32>,
+) -> Result<(), ChainError> {
+    validate_block_header_ex(block, prev, light_pow, expected_difficulty, false)
+}
+
+fn validate_block_header_ex(
+    block: &Block,
+    prev: Option<&Block>,
+    light_pow: bool,
+    expected_difficulty: Option<u32>,
+    skip_pow: bool,
 ) -> Result<(), ChainError> {
     if block.txs.is_empty() {
         return Err(ChainError::InvalidBlock("empty block".into()));
@@ -120,6 +151,11 @@ pub fn validate_block_header(
         )));
     }
     validate_pomc_coinbase(cb, block.header.height)?;
+
+    if skip_pow {
+        let _ = light_pow;
+        return Ok(());
+    }
 
     let commitment = block.header.pre_pow_commitment();
     let pow = pow_hash_header(

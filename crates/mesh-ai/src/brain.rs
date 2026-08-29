@@ -162,6 +162,20 @@ impl SharedBrain {
         Ok(())
     }
 
+    /// Seed/node steps the shared brain locally so the epoch cannot sit at 0.
+    pub fn local_step(
+        &mut self,
+        height: u64,
+        steps: u32,
+        samples: u32,
+        offset: u32,
+    ) -> Result<u64, BrainError> {
+        let input = self.encode_job(steps.max(1), 50, samples.max(16), offset);
+        let trained = run_ml_train_shared(&self.weights, &input).map_err(|_| BrainError::TrainFailed)?;
+        self.verify_and_advance(&input, &trained.output, height)?;
+        Ok(self.epoch)
+    }
+
     fn to_persist_bytes(&self) -> Vec<u8> {
         let mut out = Vec::with_capacity(64 + self.weights.len());
         out.extend_from_slice(PERSIST_MAGIC);
@@ -259,5 +273,13 @@ mod tests {
         let r2 = run_ml_train_shared(&brain2.weights, &input).unwrap();
         brain2.verify_and_advance(&input, &r2.output, 10).unwrap();
         assert_eq!(brain.digest, brain2.digest);
+    }
+
+    #[test]
+    fn local_step_moves_epoch() {
+        let mut brain = SharedBrain::genesis(None);
+        let e = brain.local_step(1, 2, 32, 0).expect("step");
+        assert_eq!(e, 1);
+        assert_eq!(brain.advances, 1);
     }
 }

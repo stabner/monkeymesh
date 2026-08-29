@@ -58,7 +58,7 @@ fn genesis_gpu_scores_do_not_eat_cpu_market() {
 
 #[test]
 fn helper_floor_cpu_exam_and_gpu_finder_share_gpu_lane() {
-    let h = 80u64;
+    let h = mesh_types::DEFAULT_USEFUL_WORK_HEIGHT;
     if !mesh_types::helper_floor_active(h) {
         return;
     }
@@ -74,7 +74,8 @@ fn helper_floor_cpu_exam_and_gpu_finder_share_gpu_lane() {
     let fusion_amt = Amount::from_atomic(gpu.atomic().saturating_sub(exam_amt.atomic()));
     assert_eq!(tx.outputs[1].address, helper);
     assert_eq!(tx.outputs[1].amount, exam_amt);
-    assert_eq!(tx.outputs[2].address, finder);
+    // Finder GPU 45% requires their own exam MATCH — otherwise that slice is vaulted.
+    assert_eq!(tx.outputs[2].address, deferred_gpu_vault());
     assert_eq!(tx.outputs[2].amount, fusion_amt);
     assert_eq!(tx.parse_pomc_exam_count(), Some(1));
     assert_eq!(tx.total_output(), block_reward(h));
