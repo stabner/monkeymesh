@@ -39,6 +39,8 @@ pub enum OrchError {
     StaleBrain,
     #[error("invalid address")]
     BadAddress,
+    #[error("already sealed")]
+    AlreadySealed,
 }
 
 /// Heavy verify work extracted under the AI lock; runs CPU off-mutex (Build/27 N9).
@@ -490,6 +492,33 @@ pub struct JobQueue {
     quantum: Option<QuantumBrainPack>,
     /// Recent quantum train/sim outcomes for the public story feed.
     quantum_story: VecDeque<QuantumStoryBeat>,
+    /// GPU-produced outputs waiting for a CPU rematch (not paid yet).
+    offers: HashMap<String, ResultOffer>,
+    offer_order: VecDeque<String>,
+    last_seal: Option<LastSeal>,
+}
+
+const MAX_RESULT_OFFERS: usize = 32;
+
+/// GPU output staged for a public CPU rematch. Output stays on the seed.
+#[derive(Clone, Debug)]
+pub struct ResultOffer {
+    pub job_id: String,
+    pub kind: String,
+    pub input_hex: String,
+    pub output: Vec<u8>,
+    pub producer: String,
+    pub offered_at: u64,
+}
+
+/// Last successful CPU seal of a GPU offer.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct LastSeal {
+    pub job_id: String,
+    pub kind: String,
+    pub producer: String,
+    pub sealer: String,
+    pub at: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -952,6 +981,105 @@ impl JobQueue {
 
     pub fn pending_len(&self) -> usize {
         self.pending.len()
+    }
+
+    pub fn offer_len(&self) -> usize {
+        self.offers.len()
+    }
+
+    pub fn last_seal(&self) -> Option<&LastSeal> {
+        self.last_seal.as_ref()
+    }
+
+    /// Assigned GPU stages an output. Job stays inflight; nobody is paid yet.
+    pub fn stage_offer(
+        &mut self,
+        worker: &str,
+        job_id: &str,
+        output_hex: &str,
+    ) -> Result<ResultOffer, OrchError> {
+        if self.last_seal.as_ref().is_some_and(|s| s.job_id == job_id) {
+            return Err(OrchError::AlreadySealed);
+        }
+        let job = self.inflight.get(job_id).ok_or(OrchError::NoJob)?;
+        if job.assigned_to.as_deref() != Some(worker) {
+            return Err(OrchError::JobMismatch);
+        }
+        let output = hex::decode(output_hex).map_err(|_| OrchError::EchoFailed)?;
+        let offer = ResultOffer {
+            job_id: job_id.to_string(),
+            kind: Self::wire_kind(job),
+            input_hex: hex::encode(&job.input),
+            output,
+            producer: worker.to_string(),
+            offered_at: now_secs(),
+        };
+        if self.offers.insert(job_id.to_string(), offer.clone()).is_none() {
+            self.offer_order.push_back(job_id.to_string());
+        }
+        while self.offer_order.len() > MAX_RESULT_OFFERS {
+            if let Some(old) = self.offer_order.pop_front() {
+                if old != job_id {
+                    self.offers.remove(&old);
+                }
+            }
+        }
+        Ok(offer)
+    }
+
+    pub fn list_offers(&self) -> Vec<&ResultOffer> {
+        self.offer_order
+            .iter()
+            .filter_map(|id| self.offers.get(id))
+            .collect()
+    }
+
+    pub fn drop_offer(&mut self, job_id: &str) {
+        self.offers.remove(job_id);
+        self.offer_order.retain(|id| id != job_id);
+    }
+
+    /// CPU sealer posts a rematch of the staged GPU output.
+    pub fn prepare_rematch(
+        &mut self,
+        job_id: &str,
+        sealer_output_hex: &str,
+    ) -> Result<PendingVerify, OrchError> {
+        if !self.inflight.contains_key(job_id) {
+            if self.last_seal.as_ref().is_some_and(|s| s.job_id == job_id)
+                || !self.offers.contains_key(job_id)
+            {
+                return Err(OrchError::AlreadySealed);
+            }
+            return Err(OrchError::NoJob);
+        }
+        let offer = self.offers.get(job_id).ok_or(OrchError::NoJob)?.clone();
+        let sealer = hex::decode(sealer_output_hex).map_err(|_| OrchError::EchoFailed)?;
+        if sealer != offer.output {
+            return Err(OrchError::JobMismatch);
+        }
+        self.prepare_complete(&offer.producer, job_id, sealer_output_hex)
+    }
+
+    pub fn note_seal(&mut self, job_id: &str, sealer: &str) {
+        let kind = self
+            .offers
+            .get(job_id)
+            .map(|o| o.kind.clone())
+            .unwrap_or_default();
+        let producer = self
+            .offers
+            .get(job_id)
+            .map(|o| o.producer.clone())
+            .unwrap_or_default();
+        self.drop_offer(job_id);
+        self.last_seal = Some(LastSeal {
+            job_id: job_id.to_string(),
+            kind,
+            producer,
+            sealer: sealer.to_string(),
+            at: now_secs(),
+        });
     }
 
     pub fn inflight_len(&self) -> usize {

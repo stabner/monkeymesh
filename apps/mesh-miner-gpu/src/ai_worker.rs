@@ -162,7 +162,16 @@ pub fn run_ai_loop(
     let orch_idx = Arc::new(AtomicUsize::new(orch_i));
     let urls = Arc::new(urls);
     let capacity = Arc::new(capacity);
-    let mut handles = Vec::with_capacity(pullers as usize);
+    let mut handles = Vec::with_capacity(pullers as usize + 1);
+    {
+        let seal_stop = stop.clone();
+        let seal_tx = tx.clone();
+        let seal_addr = address.clone();
+        let seal_rpc = orch.clone();
+        handles.push(thread::spawn(move || {
+            crate::seal::run_seal_loop(seal_rpc, seal_addr, seal_stop, seal_tx);
+        }));
+    }
     for slot in 0..pullers {
         let agent = agent.clone();
         let urls = urls.clone();
@@ -750,47 +759,54 @@ fn pull_and_run(
     };
     let latency_ms = started.elapsed().as_millis() as u64;
 
-    let result_url = format!("{orch}/v1/result");
     let body = serde_json::json!({
         "worker": worker,
         "job_id": job.job_id,
         "output_hex": hex::encode(&output),
         "latency_ms": latency_ms,
     });
-    let resp = {
-        let mut last_err = None;
-        let mut ok_resp = None;
-        for attempt in 0..3 {
-            match with_ai_token(agent.post(&result_url)).send_json(body.clone()) {
-                Ok(r) => {
-                    ok_resp = Some(r);
-                    break;
-                }
-                Err(ureq::Error::Status(code, r)) => {
-                    let text = r.into_string().unwrap_or_default();
-                    return Err(format!("result HTTP {code}: {text}"));
-                }
-                Err(e) => {
-                    let s = e.to_string();
-                    let transient = s.contains("10054")
-                        || s.to_ascii_lowercase().contains("forcibly closed")
-                        || s.to_ascii_lowercase().contains("connection reset")
-                        || s.to_ascii_lowercase().contains("broken pipe")
-                        || s.to_ascii_lowercase().contains("connection refused");
-                    last_err = Some(s);
-                    if !transient || attempt == 2 {
-                        break;
-                    }
-                    thread::sleep(Duration::from_millis(150 * (attempt as u64 + 1)));
+    let offered = post_ai_json(agent, &format!("{orch}/v1/result/offer"), &body);
+    if offered.as_ref().map(|r| r.status() < 300).unwrap_or(false) {
+        let deadline = Instant::now() + Duration::from_secs(15);
+        while Instant::now() < deadline {
+            if offer_sealed(agent, orch, &job.job_id) {
+                break;
+            }
+            thread::sleep(Duration::from_millis(400));
+        }
+        if offer_sealed(agent, orch, &job.job_id) {
+            if let Some((next_epoch, ver, leg, w)) = trained_new_weights {
+                if let Ok(mut guard) = cache.lock() {
+                    *guard = Some(ModelCache {
+                        epoch: next_epoch,
+                        ver,
+                        leg,
+                        weights: w,
+                    });
                 }
             }
+            return Ok((job.job_id, job.kind, None, used_backend));
         }
-        match ok_resp {
-            Some(r) => r,
-            None => return Err(last_err.unwrap_or_else(|| "result submit failed".into())),
-        }
+    }
+    let resp = match post_ai_json(agent, &format!("{orch}/v1/result"), &body) {
+        Ok(r) => r,
+        Err(e) => return Err(e),
     };
     if resp.status() >= 300 {
+        let stale = resp.status() == 409;
+        if stale {
+            if let Some((next_epoch, ver, leg, w)) = trained_new_weights {
+                if let Ok(mut guard) = cache.lock() {
+                    *guard = Some(ModelCache {
+                        epoch: next_epoch,
+                        ver,
+                        leg,
+                        weights: w,
+                    });
+                }
+            }
+            return Ok((job.job_id, job.kind, None, used_backend));
+        }
         return Err(format!("result HTTP {}", resp.status()));
     }
     let result_ok = resp.into_json::<ResultOk>().ok();
@@ -819,4 +835,49 @@ fn pull_and_run(
     }
 
     Ok((job.job_id, job.kind, brain_epoch, used_backend))
+}
+
+fn post_ai_json(
+    agent: &ureq::Agent,
+    url: &str,
+    body: &serde_json::Value,
+) -> Result<ureq::Response, String> {
+    let mut last_err = None;
+    for attempt in 0..3 {
+        match with_ai_token(agent.post(url)).send_json(body.clone()) {
+            Ok(r) => return Ok(r),
+            Err(ureq::Error::Status(code, r)) => {
+                let text = r.into_string().unwrap_or_default();
+                return Err(format!("result HTTP {code}: {text}"));
+            }
+            Err(e) => {
+                let s = e.to_string();
+                let transient = s.contains("10054")
+                    || s.to_ascii_lowercase().contains("forcibly closed")
+                    || s.to_ascii_lowercase().contains("connection reset")
+                    || s.to_ascii_lowercase().contains("broken pipe")
+                    || s.to_ascii_lowercase().contains("connection refused");
+                last_err = Some(s);
+                if !transient || attempt == 2 {
+                    break;
+                }
+                thread::sleep(Duration::from_millis(150 * (attempt as u64 + 1)));
+            }
+        }
+    }
+    Err(last_err.unwrap_or_else(|| "result submit failed".into()))
+}
+
+fn offer_sealed(agent: &ureq::Agent, orch: &str, job_id: &str) -> bool {
+    let url = format!("{orch}/v1/result/pending");
+    let Ok(resp) = agent.get(&url).call() else {
+        return false;
+    };
+    let Ok(v) = resp.into_json::<serde_json::Value>() else {
+        return false;
+    };
+    v.get("last_match")
+        .and_then(|m| m.get("job_id"))
+        .and_then(|j| j.as_str())
+        == Some(job_id)
 }

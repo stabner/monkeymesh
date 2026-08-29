@@ -34,7 +34,8 @@ use meshhash_cpu::{
 };
 use mesh_miner_gpu::{
     ai_capacity_from_selection, devices_status, enumerate_devices, format_hashrate,
-    looks_like_pool_target, run_ai_loop, run_rpc_loop, AiCapacity, ComputeDevice, DeviceInfo,
+    looks_like_pool_target, run_ai_loop, run_rpc_loop, run_seal_loop, AiCapacity, ComputeDevice,
+    DeviceInfo,
     MinerConfig, MinerEvent,
 };
 use mesh_types::Address;
@@ -698,7 +699,21 @@ impl MeshWalletApp {
             self.push_event(
                 EventSrc::Mine,
                 EventKind::Ok,
-                "Research sidecar on — exam MATCH + shared brain",
+                "Research sidecar on — exam MATCH + shared brain + CPU seal",
+            );
+        } else {
+            let orch = if looks_like_pool_target(&server) {
+                mesh_types::default_rpc_urls().join(",")
+            } else {
+                server
+            };
+            let address = self.address.clone();
+            let tx_ai = self.mine_tx.clone();
+            thread::spawn(move || run_seal_loop(orch, address, stop, tx_ai));
+            self.push_event(
+                EventSrc::Mine,
+                EventKind::Ok,
+                "CPU seal sidecar on — rematch GPU AI offers",
             );
         }
     }

@@ -60,7 +60,9 @@ Target spacing: **5 seconds**. Difficulty retargets on a human-gated schedule. S
 |-----|-------------|--------------|--------------------|
 | Immune exam (1 per address/height) | Required to submit from 39000 | Same deterministic sim on the node | Helper-floor MESH (half of GPU 45%) |
 | Fusion GPU work | Block finder (GPU wave) | In the Fusion digest | GPU 45% (finder needs exam MATCH) |
-| Shared brain / protocol eval | Miner research (on by default) + seed stepper | Seed re-runs | Brain epoch **and** research units into the helper floor |
+| Shared brain / protocol eval | GPU produces; any CPU can seal | Seed rematches both | Brain epoch **and** research units to producer + sealer |
+
+GPU workers post an AI offer; a CPU rematches it from the public model + job input. The seed still re-runs the job. After height **39000** both addresses get helper-floor units. Fusion pads stay on one PC — this is not remote PoW sealing.
 
 After height **1**: **45% Fusion seal / 45% GPU work / 10% nodes**. From **39000** the GPU 45% splits: exam/brain helpers vs Fusion finder. Research still cannot move BPS, opcodes, or difficulty.
 

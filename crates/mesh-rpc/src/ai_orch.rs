@@ -68,6 +68,9 @@ pub fn ai_board_router() -> Router<RpcState> {
         .route("/v1/advertise", post(advertise))
         .route("/v1/job", post(take_job))
         .route("/v1/result", post(submit_result))
+        .route("/v1/result/offer", post(offer_result))
+        .route("/v1/result/pending", get(list_pending_seals))
+        .route("/v1/result/rematch", post(rematch_result))
         .route("/v1/results", post(submit_results))
         .route("/v1/ai/health", get(ai_health))
         .route("/v1/workers", get(list_workers))
@@ -410,6 +413,7 @@ async fn ai_health(State(st): State<RpcState>) -> Json<serde_json::Value> {
         "self_tune": has_brain,
         "completed": q.completed(),
         "pending": q.pending_len(),
+        "pending_seals": q.offer_len(),
         "inflight": q.inflight_len(),
         "verify_ok": q.verify_ok(),
         "verify_fail": q.verify_fail(),
@@ -1148,7 +1152,8 @@ struct ResultsReq {
 }
 
 fn orch_err_status(e: &impl std::fmt::Display) -> StatusCode {
-    if e.to_string().contains("stale") {
+    let s = e.to_string();
+    if s.contains("stale") || s.contains("already sealed") {
         StatusCode::CONFLICT
     } else {
         StatusCode::BAD_REQUEST
@@ -1260,7 +1265,10 @@ async fn submit_result(
     let receipt = {
         let mut q = st.ai.lock().await;
         match q.finish_complete(verified, latency, height) {
-            Ok(r) => r,
+            Ok(r) => {
+                q.drop_offer(&job_id);
+                r
+            }
             Err(e) => {
                 q.note_verify_fail();
                 return Err(orch_err(&e));
@@ -1279,6 +1287,151 @@ async fn submit_result(
     };
 
     Ok(Json(receipt_json(&receipt, brain_epoch, brain_v2_epoch)))
+}
+
+async fn offer_result(
+    State(st): State<RpcState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Json(req): Json<ResultReq>,
+) -> Result<Json<serde_json::Value>, (StatusCode, HeaderMap, String)> {
+    crate::routes::require_ai_token(&st, &headers).map_err(|(c, m)| ai_plain_err(c, m))?;
+    let ip = client_ip(&headers, Some(&addr));
+    check_board_limits(&st, "res", &req.worker, &ip)?;
+    let offer = {
+        let mut q = st.ai.lock().await;
+        q.stage_offer(&req.worker, &req.job_id, &req.output_hex)
+            .map_err(|e| orch_err(&e))?
+    };
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "pending": true,
+        "job_id": offer.job_id,
+        "kind": offer.kind,
+    })))
+}
+
+async fn list_pending_seals(
+    State(st): State<RpcState>,
+) -> Json<serde_json::Value> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let q = st.ai.lock().await;
+    let pending: Vec<serde_json::Value> = q
+        .list_offers()
+        .into_iter()
+        .map(|o| {
+            serde_json::json!({
+                "job_id": o.job_id,
+                "kind": o.kind,
+                "input_hex": o.input_hex,
+                "producer": o.producer,
+                "age_secs": now.saturating_sub(o.offered_at),
+            })
+        })
+        .collect();
+    Json(serde_json::json!({
+        "pending": pending,
+        "last_match": q.last_seal(),
+    }))
+}
+
+#[derive(Deserialize)]
+struct RematchReq {
+    address: String,
+    job_id: String,
+    output_hex: String,
+}
+
+async fn rematch_result(
+    State(st): State<RpcState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Json(req): Json<RematchReq>,
+) -> Result<Json<serde_json::Value>, (StatusCode, HeaderMap, String)> {
+    let ip = client_ip(&headers, Some(&addr));
+    check_board_limits(&st, "res", &req.address, &ip)?;
+    let sealer = mesh_types::Address::from_hex(&req.address)
+        .ok_or_else(|| ai_plain_err(StatusCode::BAD_REQUEST, "bad sealer address"))?;
+    let height = {
+        let c = st.chain.lock().await;
+        c.height()
+    };
+    let job_id = req.job_id.clone();
+    let (pending, fail_hint) = {
+        let mut q = st.ai.lock().await;
+        match q.prepare_rematch(&job_id, &req.output_hex) {
+            Ok(p) => {
+                let hint = p.quantum_fail_hint();
+                (p, hint)
+            }
+            Err(e) => return Err(orch_err(&e)),
+        }
+    };
+    let audit_every = {
+        let c = st.chain.lock().await;
+        c.active_envelopes().brain_audit_every
+    };
+    let audit_nonce = {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut h = DefaultHasher::new();
+        job_id.hash(&mut h);
+        req.address.hash(&mut h);
+        h.finish()
+    };
+    let verified = match tokio::task::spawn_blocking(move || {
+        pending.run_cpu_audited(audit_every, audit_nonce)
+    })
+    .await
+    {
+        Ok(Ok(v)) => v,
+        Ok(Err(e)) => {
+            let mut q = st.ai.lock().await;
+            if let Some((subject, detail)) = fail_hint {
+                q.push_quantum_story("failed", &subject, &detail);
+            }
+            q.note_verify_fail();
+            return Err(orch_err(&e));
+        }
+        Err(e) => {
+            return Err(ai_plain_err(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()));
+        }
+    };
+    let receipt = {
+        let mut q = st.ai.lock().await;
+        match q.finish_complete(verified, 0, height) {
+            Ok(r) => {
+                q.note_seal(&job_id, &req.address);
+                r
+            }
+            Err(e) => {
+                q.note_verify_fail();
+                return Err(orch_err(&e));
+            }
+        }
+    };
+    credit_and_announce_receipt(&st, receipt.clone()).await;
+    let mut sealer_receipt = receipt.clone();
+    sealer_receipt.job_id = format!("{}:seal", receipt.job_id);
+    sealer_receipt.worker = sealer;
+    credit_and_announce_receipt(&st, sealer_receipt).await;
+    let (brain_epoch, brain_v2_epoch) = {
+        let q = st.ai.lock().await;
+        (
+            q.brain().map(|b| b.epoch),
+            q.brain_v2().map(|b| b.epoch),
+        )
+    };
+    let mut body = receipt_json(&receipt, brain_epoch, brain_v2_epoch);
+    if let Some(obj) = body.as_object_mut() {
+        obj.insert("sealed".into(), serde_json::json!(true));
+        obj.insert("producer".into(), serde_json::json!(receipt.worker.to_hex()));
+        obj.insert("sealer".into(), serde_json::json!(req.address));
+    }
+    Ok(Json(body))
 }
 
 /// Batch verify/apply (Build/27 N9) — Light/Leg parallel; Shared may stale per-item.

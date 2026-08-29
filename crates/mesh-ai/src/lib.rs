@@ -42,8 +42,8 @@ pub use marketplace::{
 pub use orchestrator::{
     brain_verify_batch_max, effective_train_slots, run_cpu_batch, run_cpu_batch_audited, train_slots_for_vram,
     verify_echo_result, Capability, DurableQueueSnap, JobAssignment, JobQueue, OrchError,
-    PendingJob, PendingVerify, QuantumActivityItem, QuantumStoryBeat, VerifiedComplete, WorkerId,
-    WorkerRank,
+    LastSeal, PendingJob, PendingVerify, QuantumActivityItem, QuantumStoryBeat, ResultOffer,
+    VerifiedComplete, WorkerId, WorkerRank,
 };
 pub use proposer::propose_from_pulse;
 pub use protocol_sim::{
@@ -65,7 +65,10 @@ pub use ml_train::{
     weights_digest, GENESIS_BRAIN_SEED, MlTrainError, MlTrainResult, MlTrainSharedResult,
     MlTrainSharedSpec, MlTrainSpec, WEIGHTS_BLOB_LEN,
 };
-pub use work::{run_benchmark, run_ml_train_job, run_ml_train_shared_job, run_protocol_eval};
+pub use work::{
+    rematch_board_output, run_benchmark, run_ml_train_job, run_ml_train_shared_job,
+    run_protocol_eval,
+};
 pub use mesh_types::{
     ParamEpoch, ParamProposal, ProposalStatus, ProtocolEnvelopes, BPS_CEIL_CPU, BPS_CEIL_GPU,
     BPS_CEIL_NODE, BPS_FLOOR_CPU, BPS_FLOOR_GPU, BPS_FLOOR_NODE,

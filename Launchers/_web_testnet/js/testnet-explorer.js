@@ -738,6 +738,7 @@
       api("/v1/trilemma").catch(function () { return {}; }),
       api("/v1/quantum").catch(function () { return {}; }),
       api("/v1/exam/status").catch(function () { return {}; }),
+      api("/v1/result/pending").catch(function () { return {}; }),
       fetchPool(),
     ]);
     var info = pair[0] || {};
@@ -759,7 +760,8 @@
       trilemma: pair[7],
       quantum: pair[8],
       exam: pair[9],
-      pool: pair[10],
+      seals: pair[10],
+      pool: pair[11],
       lastBlock: lastBlock,
     };
   }
@@ -1593,7 +1595,7 @@
     root.innerHTML =
       '<div class="tn-card">' +
       "<h3>MESH work market</h3>" +
-      '<p class="tn-lead">MESH is for <b>paid, rematched work</b> — not only minting. From height <b>39000</b> a block is rejected without an immune-exam MATCH. Half of the GPU 45% pays exam helpers and verified brain steps.</p>' +
+      '<p class="tn-lead">MESH is for <b>paid, rematched work</b> — not only minting. From height <b>39000</b> a block is rejected without an immune-exam MATCH. GPU workers produce AI results; any CPU can seal them. The seed rematches. Both get helper-floor units. Fusion pads stay on one PC.</p>' +
       '<p class="tn-muted">Hire a check: send MESH from the All-in-One <b>Work</b> tab with memo <span class="tn-mono">mesh-work:v1</span> to a helper address below. Spend after 20 confirms.</p>' +
       "</div>" +
       '<div class="tn-grid">' +
@@ -1607,6 +1609,8 @@
       rowSlot("mfusion", "Finder GPU work") +
       rowSlot("mneed", "Exam required") +
       "</div></div>" +
+      '<div class="tn-card"><h3>Pending CPU seals</h3><div data-seal-pending></div>' +
+      '<p class="tn-muted" style="margin-top:.5rem">Last MATCH: <span data-seal-last>—</span></p></div>' +
       '<div class="tn-card"><h3>Recent exam MATCH</h3><div data-exam-tape></div></div>';
   }
 
@@ -1636,6 +1640,34 @@
       markets.exam_required || markets.useful_work_active ? "yes" : "from height 39000",
       root
     );
+    var seals = snap.seals || {};
+    var pend = seals.pending || [];
+    var box = root.querySelector("[data-seal-pending]");
+    if (box) {
+      if (!pend.length) {
+        box.innerHTML = '<p class="tn-muted">No GPU offers waiting for a CPU seal.</p>';
+      } else {
+        box.innerHTML = pend
+          .slice(0, 8)
+          .map(function (o) {
+            return (
+              '<div class="tn-row"><span class="tn-mono">' +
+              (o.kind || "job") +
+              "</span><span class="tn-mono">' +
+              String(o.job_id || "").slice(0, 22) +
+              "</span></div>"
+            );
+          })
+          .join("");
+      }
+    }
+    var last = seals.last_match || {};
+    var lastEl = root.querySelector("[data-seal-last]");
+    if (lastEl) {
+      lastEl.textContent = last.job_id
+        ? (last.kind || "job") + " · sealer " + String(last.sealer || "").slice(0, 14)
+        : "—";
+    }
     updateAiPanel(root, snap);
   }
 

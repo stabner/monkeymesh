@@ -1,3 +1,4 @@
+use std::io::Read;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -118,6 +119,12 @@ fn main() -> Result<()> {
             urls = mesh_types::public_pool_first(&mesh_types::merge_rpc_urls(&urls, &extra));
         }
         info!(?urls, "RPC mining mode (HTTPS pool first)");
+        {
+            let seal_stop = stop.clone();
+            let seal_addr = payout.to_string();
+            let seal_rpc = mesh_types::default_rpc_urls().join(",");
+            std::thread::spawn(move || cpu_seal_loop(seal_rpc, seal_addr, seal_stop));
+        }
         mined = mine_rpc_loop(&urls, &payout, &miner_id, args.max_nonces, target, &stop)?;
     } else {
         let mut chain = Chain::open_or_genesis(&args.chain)?;
@@ -537,4 +544,110 @@ fn discover_rpc_edges(rpc: &str) -> Option<Vec<String>> {
     } else {
         Some(info.edges)
     }
+}
+
+fn cpu_seal_loop(rpc_list: String, address: String, stop: Arc<AtomicBool>) {
+    let mut urls = mesh_types::parse_rpc_list(&rpc_list);
+    if urls.is_empty() {
+        urls = mesh_types::default_rpc_urls();
+    }
+    let agent = ureq::AgentBuilder::new()
+        .timeout_connect(Duration::from_secs(4))
+        .timeout_read(Duration::from_secs(60))
+        .build();
+    let mut i = 0usize;
+    while !stop.load(Ordering::SeqCst) {
+        let rpc = urls[i % urls.len()].trim_end_matches('/').to_string();
+        match cpu_try_seal(&agent, &rpc, &address) {
+            Ok(Some(job_id)) => info!(%job_id, %rpc, "CPU sealed GPU AI offer"),
+            Ok(None) => {}
+            Err(e) => {
+                tracing::debug!(%rpc, "seal: {e}");
+                i = i.wrapping_add(1);
+            }
+        }
+        thread::sleep(Duration::from_secs(2));
+    }
+}
+
+fn cpu_try_seal(agent: &ureq::Agent, rpc: &str, address: &str) -> Result<Option<String>, String> {
+    #[derive(Deserialize)]
+    struct PendingResp {
+        #[serde(default)]
+        pending: Vec<PendingOffer>,
+    }
+    #[derive(Deserialize)]
+    struct PendingOffer {
+        job_id: String,
+        kind: String,
+        input_hex: String,
+        #[serde(default)]
+        producer: String,
+    }
+    let resp = agent
+        .get(&format!("{rpc}/v1/result/pending"))
+        .call()
+        .map_err(|e| e.to_string())?;
+    let body: PendingResp = resp.into_json().map_err(|e| e.to_string())?;
+    let Some(offer) = body
+        .pending
+        .into_iter()
+        .find(|o| !o.job_id.is_empty() && o.producer != address)
+    else {
+        return Ok(None);
+    };
+    let input = hex::decode(&offer.input_hex).map_err(|e| e.to_string())?;
+    let weights = cpu_fetch_weights(agent, rpc, &offer.kind, &input)?;
+    let output = mesh_ai::rematch_board_output(&offer.kind, &input, weights.as_deref())?;
+    let resp = agent
+        .post(&format!("{rpc}/v1/result/rematch"))
+        .send_json(&serde_json::json!({
+            "address": address,
+            "job_id": offer.job_id,
+            "output_hex": hex::encode(&output),
+        }))
+        .map_err(|e| e.to_string())?;
+    if resp.status() == 409 {
+        return Ok(None);
+    }
+    if resp.status() >= 300 {
+        return Err(format!("rematch HTTP {}", resp.status()));
+    }
+    Ok(Some(offer.job_id))
+}
+
+fn cpu_fetch_weights(
+    agent: &ureq::Agent,
+    rpc: &str,
+    kind: &str,
+    input: &[u8],
+) -> Result<Option<Vec<u8>>, String> {
+    let path = match kind {
+        "ml_train_shared" => Some(format!("{rpc}/v1/model/bin?ver=1")),
+        "ml_train_shared_v2" => Some(format!("{rpc}/v1/model/bin?ver=2")),
+        "leg_train" if mesh_ai::is_leg_train(input) => {
+            let spec = mesh_ai::parse_leg_job(input).map_err(|e| e.to_string())?;
+            Some(format!("{rpc}/v1/leg/{}/bin", spec.leg.as_str()))
+        }
+        "quantum_train" if mesh_ai::is_quantum_train(input) => {
+            let spec = mesh_ai::parse_quantum_job(input).map_err(|e| e.to_string())?;
+            Some(format!("{rpc}/v1/qleg/{}/bin", spec.leg.as_str()))
+        }
+        _ => None,
+    };
+    let Some(url) = path else {
+        return Ok(None);
+    };
+    let resp = agent.get(&url).call().map_err(|e| e.to_string())?;
+    if resp.status() >= 300 {
+        return Err(format!("weights HTTP {}", resp.status()));
+    }
+    let mut bytes = Vec::new();
+    resp.into_reader()
+        .read_to_end(&mut bytes)
+        .map_err(|e| e.to_string())?;
+    if bytes.is_empty() {
+        return Err("empty weights".into());
+    }
+    Ok(Some(bytes))
 }

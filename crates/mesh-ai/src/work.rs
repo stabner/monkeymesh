@@ -38,6 +38,48 @@ pub fn run_ml_train_shared_job(weights: &[u8], input: &[u8]) -> Vec<u8> {
     }
 }
 
+/// CPU rematch of a board job. `weights` is required for shared-brain / leg / quantum.
+pub fn rematch_board_output(
+    kind: &str,
+    input: &[u8],
+    weights: Option<&[u8]>,
+) -> Result<Vec<u8>, String> {
+    match kind {
+        "echo" => Ok(input.to_vec()),
+        "benchmark" => Ok(run_benchmark(input).to_vec()),
+        "protocol_eval" => Ok(run_protocol_eval(input).to_vec()),
+        "agent_assist" => Ok(run_agent_assist(input)),
+        "ml_train" => Ok(run_ml_train_job(input)),
+        "ml_train_shared" => {
+            let w = weights.ok_or_else(|| "shared-brain weights required".to_string())?;
+            let out = run_ml_train_shared_job(w, input);
+            if out.is_empty() {
+                return Err("shared-brain rematch failed".into());
+            }
+            Ok(out)
+        }
+        "ml_train_shared_v2" => {
+            let w = weights.ok_or_else(|| "shared-brain v2 weights required".to_string())?;
+            mesh_ai_v2::run_job(w, input)
+                .map(|r| r.output)
+                .map_err(|e| e.to_string())
+        }
+        "leg_train" => {
+            let w = weights.ok_or_else(|| "leg weights required".to_string())?;
+            crate::run_leg_train(w, input)
+                .map(|r| r.output)
+                .map_err(|e| e.to_string())
+        }
+        "quantum_train" => {
+            let w = weights.ok_or_else(|| "quantum weights required".to_string())?;
+            crate::run_quantum_train(w, input)
+                .map(|r| r.output)
+                .map_err(|e| e.to_string())
+        }
+        other => Err(format!("unknown board kind {other}")),
+    }
+}
+
 /// Legacy AgentAssist wire stub (product removed; kept so old receipts can still verify).
 pub(crate) fn run_agent_assist(input: &[u8]) -> Vec<u8> {
     let digest = hex::encode(blake3::hash(input).as_bytes());
@@ -76,5 +118,12 @@ mod tests {
         let b = ResearchScenario::PrivacyLeakage.encode(42, 0.5);
         assert_eq!(run_protocol_eval(&a), run_protocol_eval(&a));
         assert_ne!(run_protocol_eval(&a), run_protocol_eval(&b));
+    }
+
+    #[test]
+    fn rematch_board_matches_protocol_eval() {
+        let input = ResearchScenario::SpamRecovery.encode(7, 0.4);
+        let a = rematch_board_output("protocol_eval", &input, None).expect("rematch");
+        assert_eq!(a, run_protocol_eval(&input).to_vec());
     }
 }

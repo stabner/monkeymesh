@@ -6,8 +6,10 @@ pub mod exam;
 pub mod gpu_gate;
 pub mod host_pads;
 pub mod opencl_mix;
+pub mod seal;
 
 pub use ai_worker::{run_ai_loop, AiCapacity};
+pub use seal::run_seal_loop;
 pub use engine::{
     ai_capacity_from_selection, amd_available, backend_status, clamp_batch, cuda_available,
     cuda_device_count, devices_status, enumerate_devices, format_hashrate, looks_like_pool_target,

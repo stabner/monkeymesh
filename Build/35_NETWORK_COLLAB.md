@@ -14,7 +14,7 @@ Therefore:
 |------|-------------|------------|
 | One hash, both lanes | Yes | Fusion rematch (already live) |
 | GPU farm plugs into pool/chain | Yes | Same GBT / submit as today |
-| CPU miners help that farm over the network | Yes, as **different work** | Immune exam MATCH on the same node ledger |
+| CPU miners help that farm over the network | Yes, as **different work** | Immune exam MATCH, plus sealing GPU AI offers (`/v1/result/rematch`) |
 | Split one nonce: CPU fills here, GPU mixes there, over WAN | No | Pad is 16–64 MiB per nonce; verify ≈ fill; trust is not consensus |
 | Self-reported “I am a CPU share” vs “I am a GPU share” | No | Anyone can lie |
 
@@ -23,7 +23,7 @@ Do **not** ship mixed pads across the public internet as a consensus feature. A 
 ## How they help each other
 
 1. **GPU farm** (6 cards → pool) mixes the pad. Host **CPU seals** the Fusion digest on the live tip. Finder takes the **Fusion seal 45%**.
-2. **CPU miners** pull the same pool/node template and **MATCH the immune exam** (tiny deterministic sim). The seed/edge **rematches**. Forged digests pay 0.
+2. **CPU miners** pull the same pool/node template and **MATCH the immune exam** (tiny deterministic sim). They can also **seal GPU AI offers** (`GET /v1/result/pending` → rematch → `POST /v1/result/rematch`). The seed rematches. Forged output pays 0. Both GPU producer and CPU sealer get helper-floor units after height 39000. Fusion pads are never shipped.
 3. **GPU work 45%** goes to the **finder**. Exam MATCH does not take a slice of this lane unless `MESH_HELPER_FLOOR_HEIGHT` is set.
 
 ```
