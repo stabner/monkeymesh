@@ -1,7 +1,7 @@
 use mesh_types::{
     Amount, CONTRIB_BLOCK_UNITS, CONTRIBUTOR_MARKET_BPS, CPU_MARKET_BPS, FAIR_CPU_LANE_BPS,
     FAIR_GPU_LANE_BPS, GPU_MARKET_BPS, SUPPLY_CAP_MESH, DECIMALS, fair_lane_split_active,
-    node_market_bps_at, shared_contrib_active,
+    finder_unify_active, node_market_bps_at, shared_contrib_active,
 };
 
 /// ~4 years at 5 s (`365.25 × 24 × 3600 / 5 ≈ 6_311_520` × 4).
@@ -50,12 +50,12 @@ pub fn block_reward(height: u64) -> Amount {
 }
 
 /// CPU / block-finder share of the block subsidy.
-/// Legacy: fixed 40%. Build/31: share of the 90% pot. Fair split: fixed 45%.
+/// Legacy: 40%. Fair split: 45%. Finder-unify: 90%.
 pub fn cpu_market_reward(height: u64) -> Amount {
     cpu_market_reward_with(height, 0)
 }
 
-/// GPU / Fusion-lane-B + exam share. Legacy: 40%. Fair split: fixed 45%.
+/// GPU / Fusion-lane-B + exam share. Legacy: 40%. Fair split: 45%. Finder-unify: 0.
 pub fn gpu_market_reward(height: u64) -> Amount {
     gpu_market_reward_with(height, 0)
 }
@@ -66,8 +66,11 @@ pub fn node_market_reward(height: u64) -> Amount {
 }
 
 /// Block-finder amount given pending GPU unit sum.
-/// After the fair-split height, `gpu_units` is ignored — CPU always gets 45%.
+/// After finder-unify, the finder takes the whole 90% pot. Fair-split: 45%.
 pub fn cpu_market_reward_with(height: u64, gpu_units: u64) -> Amount {
+    if finder_unify_active(height) {
+        return block_reward(height).split_bps(CONTRIBUTOR_MARKET_BPS);
+    }
     if fair_lane_split_active(height) {
         return block_reward(height).split_bps(FAIR_CPU_LANE_BPS);
     }
@@ -79,6 +82,9 @@ pub fn cpu_market_reward_with(height: u64, gpu_units: u64) -> Amount {
 }
 
 pub fn gpu_market_reward_with(height: u64, gpu_units: u64) -> Amount {
+    if finder_unify_active(height) {
+        return Amount::ZERO;
+    }
     if fair_lane_split_active(height) {
         return block_reward(height).split_bps(FAIR_GPU_LANE_BPS);
     }
@@ -99,7 +105,7 @@ pub fn gpu_scores_with_fusion_credit(
     gpu_scores: &std::collections::HashMap<String, u64>,
 ) -> std::collections::HashMap<String, u64> {
     let mut out = gpu_scores.clone();
-    if !fair_lane_split_active(height) {
+    if finder_unify_active(height) || !fair_lane_split_active(height) {
         return out;
     }
     if mesh_types::gpu_pay_requires_exam(height) && !out.contains_key(&finder.to_hex()) {
@@ -185,6 +191,24 @@ mod tests {
             cpu.atomic() + gpu.atomic() + node.atomic(),
             full.atomic()
         );
+    }
+
+    #[test]
+    fn finder_unify_is_ninety_ten() {
+        let h = mesh_types::DEFAULT_FINDER_UNIFY_HEIGHT;
+        if !mesh_types::finder_unify_active(h) {
+            return;
+        }
+        let full = block_reward(h);
+        let cpu = cpu_market_reward_with(h, 50_000);
+        let gpu = gpu_market_reward_with(h, 50_000);
+        let node = node_market_reward(h);
+        assert_eq!(cpu.atomic(), full.atomic() * 90 / 100);
+        assert_eq!(gpu.atomic(), 0);
+        assert_eq!(node.atomic(), full.atomic() * 10 / 100);
+        assert_eq!(cpu.atomic() + gpu.atomic() + node.atomic(), full.atomic());
+        assert!(!mesh_types::helper_floor_active(h));
+        assert!(!mesh_types::exam_required_for_block(h));
     }
 
     #[test]

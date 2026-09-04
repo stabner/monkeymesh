@@ -1,6 +1,6 @@
 # Network collab — CPU miners + GPU farms (Build/35)
 
-**Status: helper floor ON from height 39000** (`MESH_USEFUL_WORK_HEIGHT`). Product truth `Build/33_WHITEPAPER.md`. Before that height live pay is **45 / 45 / 10** to the finder; after it, half of GPU 45% pays rematched exams and brain jobs, and `submitblock` requires exam MATCH.
+**Status: helper floor ON from 39000 until finder-unify at 50000.** After **50000** the finder takes 90% in one output; exams are optional. Product truth `Build/33_WHITEPAPER.md`. Do not deploy a node that disagrees on `MESH_FINDER_UNIFY_HEIGHT`.
 
 Goal: a GPU hall and a CPU box on the same mesh **help each other**, without pretending the chain can see which silicon ran a hash.
 

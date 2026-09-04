@@ -56,7 +56,7 @@ impl CoinbaseLane {
 
     pub fn title(self) -> &'static str {
         match self {
-            Self::CpuFind => "Fusion seal · 45%",
+            Self::CpuFind => "Fusion find",
             Self::GpuExam => "GPU work · helper share",
             Self::GpuFusion => "GPU work · 45%",
             Self::GpuLane => "GPU work · 45%",
@@ -69,7 +69,7 @@ impl CoinbaseLane {
     pub fn paid_for(self) -> &'static str {
         match self {
             Self::CpuFind => {
-                "CPU sealed the Fusion digest on this tip. Always 45% to the finder."
+                "CPU and GPU found one Fusion block. Finder pot (90% after height 50000)."
             }
             Self::GpuExam => {
                 "You MATCH’d the immune exam. Helpers share the GPU 45% lane."
@@ -190,6 +190,18 @@ pub fn coinbase_payout_label(
                 "No attested node scores this window — the 10% sits in the node vault.",
             ),
             _ => (lane.title(), lane.paid_for()),
+        }
+    } else if lane == CoinbaseLane::CpuFind {
+        if parse_pomc_layout(memo).map(|l| l.n_gpu == 0).unwrap_or(false) {
+            (
+                "Finder · 90%",
+                "CPU and GPU found one Fusion block. One pay line to the miner wallet.",
+            )
+        } else {
+            (
+                "Fusion seal · 45%",
+                "CPU sealed the Fusion digest. The GPU 45% is a separate output on this coinbase.",
+            )
         }
     } else {
         (lane.title(), lane.paid_for())

@@ -336,7 +336,11 @@
 
       var tiers = document.getElementById("tpTiers");
       if (tiers) {
-        var split = markets.fair_split ? "45 / 45 / 10" : "legacy unit share";
+        var split = markets.finder_unify
+          ? "90 / 10"
+          : markets.fair_split
+          ? "45 / 45 / 10 until #50000"
+          : "legacy unit share";
         tiers.innerHTML =
           '<div class="tp-row"><span class="tp-muted">Split</span><span>' +
           esc(split) +

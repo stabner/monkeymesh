@@ -83,6 +83,10 @@ pub const RESEARCH_LANE_UNITS: u64 = 1_000;
 pub const DEFAULT_GPU_EXAM_PAY_HEIGHT: u64 = DEFAULT_USEFUL_WORK_HEIGHT;
 /// Helper floor (exam half of GPU 45%). Default: useful-work height.
 pub const DEFAULT_HELPER_FLOOR_HEIGHT: u64 = DEFAULT_USEFUL_WORK_HEIGHT;
+/// One finder pot (90%) + nodes (10%). Drops 45/45 labels and exam/helper pay.
+/// Live tip was ~40978 on 4 Sep 2026 — must be above that or deployed nodes fork.
+/// Env: `MESH_FINDER_UNIFY_HEIGHT`.
+pub const DEFAULT_FINDER_UNIFY_HEIGHT: u64 = 50_000;
 
 fn parse_height_env(name: &str, default: u64) -> u64 {
     match std::env::var(name) {
@@ -110,13 +114,24 @@ pub fn gpu_exam_pay_height() -> u64 {
 }
 
 /// GPU 45% Fusion finder credit requires a rematched exam (anti CPU-only vacuum).
+/// Off once the finder pot is unified — AI is optional homework, not a pay gate.
 pub fn gpu_pay_requires_exam(height: u64) -> bool {
-    height >= gpu_exam_pay_height()
+    !finder_unify_active(height) && height >= gpu_exam_pay_height()
 }
 
 /// Finder must MATCH the immune exam before `submitblock` (useful-work height).
+/// Off after finder-unify: optional sidecar, not a block condition.
 pub fn exam_required_for_block(height: u64) -> bool {
-    useful_work_active(height)
+    useful_work_active(height) && !finder_unify_active(height)
+}
+
+pub fn finder_unify_height() -> u64 {
+    parse_height_env("MESH_FINDER_UNIFY_HEIGHT", DEFAULT_FINDER_UNIFY_HEIGHT)
+}
+
+/// One Fusion pay line: 90% finder / 10% nodes. No GPU-lane split, no exam gate.
+pub fn finder_unify_active(height: u64) -> bool {
+    height >= finder_unify_height()
 }
 
 pub fn helper_floor_height() -> u64 {
@@ -171,11 +186,15 @@ pub fn fair_lane_split_active(height: u64) -> bool {
 
 /// GPU 45% splits: exam helpers (network CPUs) vs Fusion finder credit.
 pub fn helper_floor_active(height: u64) -> bool {
-    fair_lane_split_active(height) && height >= helper_floor_height()
+    !finder_unify_active(height)
+        && fair_lane_split_active(height)
+        && height >= helper_floor_height()
 }
 
 pub fn cpu_market_bps_at(height: u64) -> u16 {
-    if fair_lane_split_active(height) {
+    if finder_unify_active(height) {
+        CONTRIBUTOR_MARKET_BPS
+    } else if fair_lane_split_active(height) {
         FAIR_CPU_LANE_BPS
     } else if shared_contrib_active(height) {
         0
@@ -185,7 +204,9 @@ pub fn cpu_market_bps_at(height: u64) -> u16 {
 }
 
 pub fn gpu_market_bps_at(height: u64) -> u16 {
-    if fair_lane_split_active(height) {
+    if finder_unify_active(height) {
+        0
+    } else if fair_lane_split_active(height) {
         FAIR_GPU_LANE_BPS
     } else if shared_contrib_active(height) {
         0

@@ -193,7 +193,6 @@ foreach ($pat in @('127.0.0.1:18082','0.0.0.0:39012','127.0.0.1:39012')) {{
 enum Page {
     Overview,
     Send,
-    Work,
     Receive,
     History,
     Mine,
@@ -1162,7 +1161,6 @@ impl eframe::App for MeshWalletApp {
                             |ui| match self.page {
                                 Page::Overview => self.page_overview(ui),
                                 Page::Send => self.page_send(ui),
-                                Page::Work => self.page_work(ui),
                                 Page::Receive => self.page_receive(ui),
                                 Page::History => self.page_history(ui),
                                 Page::Mine => self.page_mine(ui),
@@ -1212,7 +1210,6 @@ impl MeshWalletApp {
         let items = [
             (Page::Overview, Icon::Overview, "Overview"),
             (Page::Send, Icon::Send, "Send"),
-            (Page::Work, Icon::Mine, "Work"),
             (Page::Receive, Icon::Receive, "Receive"),
             (Page::History, Icon::History, "History"),
             (Page::Mine, Icon::Mine, "Mine"),
@@ -1249,7 +1246,6 @@ impl MeshWalletApp {
         let title = match self.page {
             Page::Overview => "Overview",
             Page::Send => "Send",
-            Page::Work => "Work market",
             Page::Receive => "Receive",
             Page::History => "History",
             Page::Mine => "Mine",
@@ -1329,9 +1325,6 @@ impl MeshWalletApp {
             if primary_btn(ui, "Send", true).clicked() {
                 self.page = Page::Send;
             }
-            if ghost_btn(ui, "Work market").clicked() {
-                self.page = Page::Work;
-            }
             if ghost_btn(ui, "Receive").clicked() {
                 self.page = Page::Receive;
             }
@@ -1387,66 +1380,6 @@ impl MeshWalletApp {
             .show(ui, |ui| {
                 self.tx_rows(ui, 12);
             });
-    }
-
-    fn page_work(&mut self, ui: &mut egui::Ui) {
-        panel().show(ui, |ui| {
-            ui.set_width(ui.available_width().min(560.0));
-            ui.label(
-                RichText::new("MESH work market")
-                    .color(CYAN)
-                    .size(16.0)
-                    .strong(),
-            );
-            ui.add_space(6.0);
-            ui.label(
-                RichText::new(
-                    "From height 39000 every block needs an immune-exam MATCH. Half of the GPU 45% pays rematched exams and brain jobs. Send MESH to hire a check or tip a helper.",
-                )
-                .color(MUTED)
-                .size(12.0),
-            );
-            ui.add_space(12.0);
-            label_upper(ui, "Pay a helper");
-            ui.label(
-                RichText::new("Paste a mesh01… address that is matching exams, then send.")
-                    .color(MUTED)
-                    .size(11.5),
-            );
-            ui.add_space(8.0);
-            label_upper(ui, "To");
-            field(ui, &mut self.to, "mesh01…", true);
-            ui.add_space(8.0);
-            label_upper(ui, "Amount");
-            field(ui, &mut self.amount, "1.0", false);
-            if self.memo.trim().is_empty() {
-                self.memo = "mesh-work:v1".into();
-            }
-            ui.add_space(8.0);
-            label_upper(ui, "Memo");
-            field(ui, &mut self.memo, "mesh-work:v1", true);
-            ui.add_space(14.0);
-            if primary_btn(ui, "Pay for work", !self.busy).clicked() {
-                if let Some(key) = self.key.clone() {
-                    self.busy = true;
-                    let _ = self.job_tx.send((
-                        Job::Send {
-                            to: self.to.clone(),
-                            amount: self.amount.clone(),
-                            memo: self.memo.clone(),
-                        },
-                        self.rpc_url.clone(),
-                        key,
-                    ));
-                }
-            }
-            ui.add_space(10.0);
-            ui.label(
-                RichText::new("Public board: hashmonkeys.cloud/testnet-explorer.html#market")
-                    .color(MUTED)
-                    .size(11.0),
-            );
-        });
     }
 
     fn page_send(&mut self, ui: &mut egui::Ui) {
@@ -1610,7 +1543,7 @@ impl MeshWalletApp {
         ui.add_space(4.0);
         ui.label(
             RichText::new(
-                "Coinbase is 45% Fusion seal (CPU) / 45% GPU work / 10% nodes. Helpers share the GPU lane via exam MATCH. Immature outputs need 20 confirms.",
+                "CPU and GPU find one Fusion block. From height 50000 the finder gets 90% and nodes get 10%. Optional AI exams do not find the block. Immature outputs need 20 confirms.",
             )
             .color(MUTED)
             .size(11.5),

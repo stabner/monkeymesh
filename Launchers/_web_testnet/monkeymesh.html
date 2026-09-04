@@ -436,17 +436,12 @@
 
     <section class="mm-section" id="design">
       <h2>How a block is found</h2>
-      <p class="mm-sub">One Fusion solution. GPU does the wave. CPU seals that ticket. They fuse into one block. The same finder gets 45% Fusion seal + 45% GPU work (45 MESH). Nodes get 10%. Official miners refuse CPU-only after height 29,000.</p>
+      <p class="mm-sub">One Fusion solution. GPU does the wave. CPU seals that ticket. They fuse into one block. From height 50000 the finder gets 90% (45 MESH) in one pay line. Nodes get 10%. Official miners refuse CPU-only after height 29,000.</p>
       <div class="mm-markets">
         <div class="mm-market">
-          <div class="pct">45%</div>
-          <h3>Fusion seal</h3>
-          <p>22.5 MESH to the finder. CPU rematch of the bound digest. A GPU farm cannot skip this and still produce a valid block.</p>
-        </div>
-        <div class="mm-market">
-          <div class="pct">45%</div>
-          <h3>GPU work</h3>
-          <p>22.5 MESH to the same finder. Bandwidth-hard Fusion wave on the same pad. A CPU-only botnet cannot skip this either.</p>
+          <div class="pct">90%</div>
+          <h3>Finder</h3>
+          <p>45 MESH to the miner wallet. CPU and GPU must both be in the digest. A one-sided farm cannot skip a chip and still produce a valid block.</p>
         </div>
         <div class="mm-market">
           <div class="pct">10%</div>
@@ -464,7 +459,7 @@
         <div><dt>Consensus</dt><dd>Fusion MeshHash — CPU + GPU, one digest</dd></div>
         <div><dt>Block time</dt><dd>~5 seconds</dd></div>
         <div><dt>Block reward</dt><dd>50 MESH (45 miner + 5 nodes)</dd></div>
-        <div><dt>Locked split</dt><dd>45% Fusion seal / 45% GPU work / 10% nodes from height 1</dd></div>
+        <div><dt>Locked split</dt><dd>90% finder / 10% nodes from height 50000</dd></div>
         <div><dt>Max supply</dt><dd>2,522,880,000 MESH (enforced)</dd></div>
         <div><dt>Maturity</dt><dd>20 confirmations before coinbase spends</dd></div>
         <div><dt>Mine target</dt><dd>https://eu.hashmonkeys.cloud</dd></div>
@@ -505,7 +500,7 @@
             <article data-state="done" style="animation-delay:0.04s">
               <span class="mm-era">1 · Foundation</span>
               <h3><span class="mm-pill">Done</span> Home-PC Fusion</h3>
-              <p>CPU + GPU find one block. Locked 45 / 45 / 10. Desktop miner, wallet, HTTPS pool, and public explorer.</p>
+              <p>CPU + GPU find one block. Finder 90% / nodes 10% from height 50000. Desktop miner, wallet, HTTPS pool, and public explorer.</p>
             </article>
             <article data-state="active" style="animation-delay:0.08s">
               <span class="mm-era">2 · Now</span>
@@ -549,7 +544,7 @@
         <a href="dashboard.html">Miner dashboard</a>
         <a href="calculator.html">Earnings calculator</a>
       </div>
-      <p class="mm-muted" style="margin-top:1rem">Optional AI exams are rematched extra checks. They do not find the block and cannot change the 45 / 45 / 10 split.</p>
+      <p class="mm-muted" style="margin-top:1rem">Optional AI exams are rematched extra checks. They do not find the block and cannot change the 90 / 10 split.</p>
       <p class="mm-muted" style="margin-top:1.25rem">Recent pool finds</p>
       <div id="mpCredits" class="mm-muted">Loading…</div>
     </section>

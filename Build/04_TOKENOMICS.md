@@ -29,17 +29,22 @@ The old 21B figure is retired. Years 1–4 mint **50% of the real cap** (1.261B 
 
 ---
 
-## 2. Per-block split (height ≥ 1, live)
+## 2. Per-block split
 
-Isolated lanes. Research units cannot move BPS.
+Fusion is one digest, so there is **one finder pot**. Research units cannot move BPS. AI exams do not find the block.
 
-| Lane | BPS | MESH @ 50 | Paid to | If nobody qualified |
-|------|-----|-----------|---------|---------------------|
-| Fusion seal (CPU rematch) | 4500 | 22.5 | Block finder | Impossible — finder is required |
-| GPU work (Fusion lane B) | 4500 | 22.5 | Same finder (`FUSION_GPU_UNITS`) | GPU vault (no spend key) |
+| Height | Finder | Nodes |
+|--------|--------|-------|
+| 0 (genesis) | 40% + 40% GPU lane | 20% |
+| 1 … 49999 | 45% Fusion seal + 45% GPU work (same wallet, two outputs) | 10% |
+| ≥ **50000** (`DEFAULT_FINDER_UNIFY_HEIGHT`) | **90%** one output | **10%** |
+
+| Lane (after 50000) | BPS | MESH @ 50 | Paid to | If nobody qualified |
+|--------------------|-----|-----------|---------|---------------------|
+| Finder (Fusion) | 9000 | 45 | Block finder | Impossible — finder is required |
 | Nodes | 1000 | 5.0 | Bonded operators with attested useful work | Node vault (no spend key) |
 
-**Helper floor is OFF** (`DEFAULT_HELPER_FLOOR_HEIGHT = u64::MAX`). Finder takes **45 MESH**. Restore exam-helpers taking half of the GPU 45% only with `MESH_HELPER_FLOOR_HEIGHT=1` (see `Build/35`).
+Helper floor and exam-required **end at 50000**. Until then they stay as shipped at 39000 so the live tip does not fork. Env: `MESH_FINDER_UNIFY_HEIGHT`.
 
 Height 0 (genesis only): 40% / 40% / 20%.
 
@@ -53,9 +58,9 @@ Governance clamps if a human ever height-gates a BPS change:
 
 AI cannot activate BPS changes.
 
-Public name for the first 45% is **Fusion seal**, not “CPU reward.” Fusion is one digest; the CPU walk is a required lane, not a separate coin. Same finder is paid 45 + 45.
+Public name after 50000 is **finder 90%**, not two miner markets. Fusion still requires both chips in one digest.
 
-**Do not change 45 / 45 / 10 on theory.** The math is balanced. The open question is hardware ROI: MESH per watt and MESH per € of CPU vs GPU on the class of PCs we target. Collect testnet data (hashrate, power, blocks, node cost) before any BPS height-gate.
+**Do not change 90 / 10 on theory.** Hardware ROI (MESH per watt on a home PC) is the only reason to height-gate BPS later.
 
 ---
 
@@ -113,8 +118,9 @@ User txs: if outputs &lt; inputs, the gap is **burned** (not a finder fee).
 |------|---------|------|
 | `MESH_FAIR_SPLIT_HEIGHT` | 1 | Two nodes, two splits → invalid coinbase |
 | `MESH_SHARED_BPS_HEIGHT` | 1 | Same |
-| `MESH_HELPER_FLOOR_HEIGHT` | off | Changes who gets 11.25 MESH |
-| `MESH_GPU_EXAM_PAY_HEIGHT` | off | Can vault the GPU 45% |
+| `MESH_FINDER_UNIFY_HEIGHT` | 50000 | Two nodes, two coinbase shapes → invalid blocks |
+| `MESH_HELPER_FLOOR_HEIGHT` | 39000 until unify | Changes who gets 11.25 MESH before 50000 |
+| `MESH_GPU_EXAM_PAY_HEIGHT` | 39000 until unify | Can vault the GPU 45% before 50000 |
 | `MESH_NODE_BOND` | on | Sybil if off |
 
 Compile-time only on mainnet.
@@ -124,8 +130,8 @@ Compile-time only on mainnet.
 ## 7. Decisions still open
 
 1. **Done (A):** cap is 2,522,880,000 and `block_reward` clamps to remaining room.
-2. Helper floor on or off for mainnet (product truth today: off).
-3. Require exam MATCH before Fusion GPU 45% (anti CPU-only vacuum) — off today.
+2. **Done (4 Sep 2026):** finder 90% / nodes 10% from height 50000. Helper floor and exam-required are testnet-only until that height.
+3. Mainnet: compile-time 90/10. No exam gate. No helper floor.
 4. Fee market vs keep burn-only remainder.
 5. Vault UTXOs: burn vs later claim.
 6. Premine / foundation / grants: **0%** or a published genesis allocation.

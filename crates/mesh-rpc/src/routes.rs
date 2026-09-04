@@ -2271,6 +2271,8 @@ async fn get_markets(State(st): State<RpcState>) -> Json<serde_json::Value> {
         "gpu_exam_market": if helper { exam.to_string() } else { String::new() },
         "gpu_fusion_market": if helper { fusion.to_string() } else { String::new() },
         "helper_floor": helper,
+        "finder_unify": mesh_types::finder_unify_active(next),
+        "finder_unify_height": mesh_types::finder_unify_height(),
         "useful_work_height": mesh_types::useful_work_height(),
         "useful_work_active": mesh_types::useful_work_active(next),
         "exam_required": mesh_types::exam_required_for_block(next),

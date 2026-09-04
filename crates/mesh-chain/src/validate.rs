@@ -211,15 +211,30 @@ fn validate_pomc_coinbase(cb: &Transaction, height: u64) -> Result<(), ChainErro
             cb.outputs.len()
         )));
     }
-    if n_gpu == 0 || n_node == 0 {
+    if n_node == 0 {
+        return Err(ChainError::InvalidBlock(
+            "pomc coinbase requires at least one Node output".into(),
+        ));
+    }
+    if mesh_types::finder_unify_active(height) {
+        if n_gpu != 0 {
+            return Err(ChainError::InvalidBlock(
+                "finder-unify coinbase has no GPU-lane outputs".into(),
+            ));
+        }
+    } else if n_gpu == 0 {
         return Err(ChainError::InvalidBlock(
             "pomc coinbase requires at least one GPU and one Node output".into(),
         ));
     }
-    let gpu_sum = cb.outputs[1..1 + n_gpu]
-        .iter()
-        .try_fold(mesh_types::Amount::ZERO, |a, o| a.checked_add(o.amount))
-        .map_err(|_| ChainError::InvalidBlock("gpu coinbase overflow".into()))?;
+    let gpu_sum = if n_gpu == 0 {
+        mesh_types::Amount::ZERO
+    } else {
+        cb.outputs[1..1 + n_gpu]
+            .iter()
+            .try_fold(mesh_types::Amount::ZERO, |a, o| a.checked_add(o.amount))
+            .map_err(|_| ChainError::InvalidBlock("gpu coinbase overflow".into()))?
+    };
     let node_sum = cb.outputs[1 + n_gpu..]
         .iter()
         .try_fold(mesh_types::Amount::ZERO, |a, o| a.checked_add(o.amount))
@@ -227,7 +242,14 @@ fn validate_pomc_coinbase(cb: &Transaction, height: u64) -> Result<(), ChainErro
     if node_sum != node_market_reward(height) {
         return Err(ChainError::InvalidBlock("bad Node market coinbase amount".into()));
     }
-    if mesh_types::fair_lane_split_active(height) {
+    if mesh_types::finder_unify_active(height) {
+        if cb.outputs[0].amount != cpu_market_reward(height) {
+            return Err(ChainError::InvalidBlock("bad finder pot coinbase amount".into()));
+        }
+        if gpu_sum != mesh_types::Amount::ZERO {
+            return Err(ChainError::InvalidBlock("finder-unify GPU lane must be empty".into()));
+        }
+    } else if mesh_types::fair_lane_split_active(height) {
         if cb.outputs[0].amount != cpu_market_reward(height) {
             return Err(ChainError::InvalidBlock("bad CPU lane coinbase amount".into()));
         }

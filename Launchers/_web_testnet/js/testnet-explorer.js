@@ -335,7 +335,11 @@
     var lay = pomcLayout(memo);
     if (!lay) return null;
     var detail =
-      lay.nExam != null
+      lay.nGpu === 0
+        ? "Block #" +
+          lay.height +
+          " — 90% finder / 10% nodes. One Fusion pay line. 20 confirms to spend."
+        : lay.nExam != null
         ? "Block #" +
           lay.height +
           " — 45% Fusion seal, 45% GPU work, 10% nodes. Same finder gets both 45s. 20 confirms to spend."
@@ -349,7 +353,7 @@
     if (out && out.title) return out.title;
     var lay = pomcLayout(memo);
     if (!lay) return "Output #" + idx;
-    if (idx === 0) return "Fusion seal · 45%";
+    if (idx === 0) return lay.nGpu === 0 ? "Finder · 90%" : "Fusion seal · 45%";
     if (idx <= lay.nGpu) {
       if (lay.nExam != null) {
         if (idx <= lay.nExam) return "GPU work · helper share";
@@ -1322,15 +1326,15 @@
     root.innerHTML =
       '<div class="tn-card">' +
       '<h3>What this chain is doing</h3>' +
-      '<p class="tn-lead"><b>Why mine it?</b> A CPU-only coin wastes your GPU. A GPU-only coin wastes your CPU. MESH needs both on one Fusion digest. The same finder gets 45% Fusion seal + 45% GPU work. You get paid to the wallet in the miner — not a pool treasury.</p>' +
-      '<p class="tn-lead">MonkeyMesh is a <b>home-PC coin</b>. First valid nonce wins. From height <b>39000</b> the finder must MATCH the immune exam or the block is rejected. Rematched exams and brain steps are paid from half of the GPU 45%.</p>' +
+      '<p class="tn-lead"><b>Why mine it?</b> Your PC’s CPU and GPU find one Fusion block together. You get 90%. Nodes that actually help get 10%. Optional tiny AI jobs are extra checks — they do not find the block.</p>' +
+      '<p class="tn-lead">MonkeyMesh is a <b>home-PC coin</b>. First valid nonce wins. Paid to the wallet in the miner — not a pool treasury. The 90 / 10 pay line starts at height <b>50000</b> (until then the same finder still gets 45 MESH as two 22.5s).</p>' +
       '<div class="tn-split" aria-hidden="true"><span class="tn-split__cpu"></span><span class="tn-split__gpu"></span><span class="tn-split__node"></span></div>' +
-      '<div class="tn-split-legend"><span><b>45% Fusion seal</b></span><span><b>45% GPU work</b></span><span><b>10% nodes</b></span></div>' +
+      '<div class="tn-split-legend"><span><b>90% finder</b></span><span><b>10% nodes</b></span></div>' +
       '<div class="tn-steps">' +
       '<div class="tn-step"><small>1</small><strong>Template</strong><span>Miner pulls work from the HTTPS pool.</span></div>' +
       '<div class="tn-step"><small>2</small><strong>Fusion hash</strong><span>CPU fills the pad. GPU mixes in VRAM. One digest.</span></div>' +
       '<div class="tn-step"><small>3</small><strong>Submit</strong><span>Pool / seed rematch the hash. Fake work is rejected.</span></div>' +
-      '<div class="tn-step"><small>4</small><strong>Pay</strong><span>Labeled coinbase: Fusion find, exam MATCH, Fusion mix, nodes. Spend after 20 confirms.</span></div>' +
+      '<div class="tn-step"><small>4</small><strong>Pay</strong><span>Finder 90% · nodes 10%. Spend after 20 confirms.</span></div>' +
       "</div></div>" +
       '<div class="tn-grid">' +
       '<div class="tn-card"><h3>Live chain</h3>' +
@@ -1344,15 +1348,15 @@
       rowSlot("genesis", "Genesis", true) +
       "</div>" +
       '<div class="tn-card"><h3>This block pays</h3>' +
-      rowSlot("cpu", "Fusion seal") +
-      rowSlot("gpu", "GPU work") +
+      rowSlot("cpu", "Finder") +
+      rowSlot("gpu", "GPU lane (legacy)") +
       rowSlot("node", "Network nodes") +
-      rowSlot("split", "Locked split") +
-      '<p class="tn-muted" style="margin-top:.5rem">Same finder gets both 45s when the exam MATCHES. After 39000 the helper floor pays exam/brain units from the GPU lane. Nodes get 5 only for attested work.</p></div>' +
+      rowSlot("split", "Pay line") +
+      '<p class="tn-muted" style="margin-top:.5rem">From height 50000 the finder is one 45 MESH output. Nodes get 5 only for attested work. AI exams do not move this split.</p></div>' +
       "</div>" +
       '<div class="tn-grid">' +
       '<div class="tn-card"><h3>If you are a miner</h3>' +
-      '<div class="tn-row"><span>You earn</span><span>45 MESH — Fusion seal 22.5 + GPU work 22.5 to the same wallet</span></div>' +
+      '<div class="tn-row"><span>You earn</span><span>45 MESH (90%) to the miner wallet</span></div>' +
       '<div class="tn-row"><span>Nodes earn</span><span>5 MESH per block for attested work</span></div>' +
       '<div class="tn-row"><span>Spend after</span><span>20 confirmations (~100 s)</span></div>' +
       '<div class="tn-row"><span>Target pace</span><span>~5 seconds per block</span></div>' +
@@ -1394,8 +1398,10 @@
     setText('[data-row="cpu"] [data-v]', markets.cpu_market || "22.5 MESH", root);
     setText('[data-row="gpu"] [data-v]', markets.gpu_market || "22.5 MESH", root);
     setText('[data-row="node"] [data-v]', markets.node_market || "5 MESH", root);
-    var split = markets.fair_split
-      ? "45 / 45 / 10"
+    var split = markets.finder_unify
+      ? "90 / 10 from #50000"
+      : markets.fair_split
+      ? "45 / 45 / 10 until #50000"
       : (markets.cpu_bps ? String(markets.cpu_bps / 100) + "% · unit share" : "45 / 45 / 10");
     setText('[data-row="split"] [data-v]', split, root);
     var aiJobs = ai.verify_ok != null ? ai.verify_ok : 0;
@@ -1457,7 +1463,7 @@
       '<div class="tn-step"><small>1</small><strong>GPU work</strong><span>Bandwidth-hard Fusion wave on the mixed pad. This ticket must exist first.</span></div>' +
       '<div class="tn-step"><small>2</small><strong>CPU work</strong><span>Latency-hard seal bound to that GPU ticket. Cannot run first (pow v5).</span></div>' +
       '<div class="tn-step"><small>3</small><strong>Fuse</strong><span>One digest. First valid nonce is the block. Official miners refuse CPU-only.</span></div>' +
-      '<div class="tn-step"><small>Pay</small><strong>45 / 45 / 10</strong><span>Fusion seal 45% + GPU work 45% to the same finder. Nodes 10%.</span></div>' +
+      '<div class="tn-step"><small>Pay</small><strong>90 / 10</strong><span>Finder 90% (one Fusion pay). Nodes 10%. From height 50000.</span></div>' +
       "</div></div>" +
       '<div class="tn-card"><h3>MeshHash-Fusion (v5 sequential from 29,000)</h3>' +
       '<p class="tn-lead">GPU does one job. CPU does the other. They fuse into one digest. Not RandomX (CPU-only) and not KawPow (GPU-only).</p>' +
@@ -1484,13 +1490,13 @@
       '<div class="tn-row"><span>Difficulty</span><span>One target on the bound digest — not two</span></div>' +
       '<div class="tn-row"><span>51%</span><span>Need a majority of Fusion work (both lanes), not GPU rental alone</span></div>' +
       '<p class="tn-muted" style="margin-top:.65rem">A colluding CPU shop and GPU shop can still share a 16–64&nbsp;MiB pad. Fusion makes a one-sided warehouse weaker than a home PC. It does not ban split-shop mining.</p></div>' +
-      '<div class="tn-card"><h3>Why the 45 / 45 / 10 split is locked</h3>' +
-      '<p class="tn-lead">These are not two independent coins. Fusion requires both lanes, so the same finder is paid both 45s. The split is locked in the protocol — not voted by hashrate, and not moved by AI. Testnet data decides whether hardware ROI stays balanced; we will not retune BPS on theory.</p>' +
-      '<div class="tn-row"><span>Fusion seal</span><span>Always 45% · bound digest rematch</span></div>' +
-      '<div class="tn-row"><span>GPU work</span><span>Always 45% · same finder</span></div>' +
-      '<div class="tn-row"><span>Network nodes</span><span>Always 10% · 5 MESH</span></div>' +
-      '<div class="tn-row"><span>One digest</span><span>Both lanes required or the block is rejected</span></div>' +
-      '<p class="tn-muted" style="margin-top:.65rem">A GPU farm still needs the CPU walk. A CPU botnet still needs the GPU wave. That is how ordinary home PCs stay in the race.</p></div>' +
+      '<div class="tn-card"><h3>Why pay is 90 / 10</h3>' +
+      '<p class="tn-lead">Fusion is one digest, so there is one finder pot — not two miner markets. From height 50000 that pot is 90%. Nodes keep 10% for attested work. Hashrate and AI cannot vote this away.</p>' +
+      '<div class="tn-row"><span>Finder</span><span>90% · CPU + GPU, one hash</span></div>' +
+      '<div class="tn-row"><span>Network nodes</span><span>10% · 5 MESH</span></div>' +
+      '<div class="tn-row"><span>AI exams</span><span>Optional checks · do not find the block</span></div>' +
+      '<div class="tn-row"><span>One digest</span><span>Both chips required or the block is rejected</span></div>' +
+      '<p class="tn-muted" style="margin-top:.65rem">A GPU farm still needs the CPU seal. A CPU botnet still needs the GPU wave. That is how ordinary home PCs stay in the race.</p></div>' +
       '<div class="tn-grid">' +
       '<div class="tn-card"><h3>Why this instead of RandomX / KawPow</h3>' +
       '<div class="tn-row"><span>CPU-only (RandomX-like)</span><span>GPUs sit idle · botnets win</span></div>' +
@@ -1509,7 +1515,7 @@
   function buildTokenomicsShell(root) {
     root.innerHTML =
       '<div class="tn-card"><h3>Tokenomics (live testnet)</h3>' +
-      '<p class="tn-lead">Simple on purpose. The 45 / 45 / 10 split is locked. Hashrate and AI cannot vote it away.</p>' +
+      '<p class="tn-lead">Simple on purpose. Finder 90% / nodes 10% from height 50000. Hashrate and AI cannot vote it away.</p>' +
       rowSlot("tick", "Ticker") +
       rowSlot("cap", "Max supply") +
       rowSlot("emitted", "Total emitted") +
@@ -1517,13 +1523,13 @@
       rowSlot("issued", "Issued") +
       rowSlot("btime", "Block time") +
       rowSlot("breward", "Block reward") +
-      rowSlot("cpu", "Fusion seal") +
-      rowSlot("gpu", "GPU work") +
+      rowSlot("cpu", "Finder") +
+      rowSlot("gpu", "GPU lane (until 50000)") +
       rowSlot("node", "Network nodes") +
       rowSlot("mature", "Coinbase maturity") +
       rowSlot("pow", "PoW") +
       rowSlot("addr", "Addresses") +
-      '<p class="tn-muted" style="margin-top:.75rem">No MESH dev fee in the coinbase. Finder gets 45. Nodes get 5 only for attested useful work (relay, AI routing, snapshot). Idle reputation is 0.</p></div>' +
+      '<p class="tn-muted" style="margin-top:.75rem">No MESH dev fee in the coinbase. Finder gets 45. Nodes get 5 only for attested useful work (relay, routing, snapshot). Idle reputation is 0. Optional AI does not change this.</p></div>' +
       '<div class="tn-card"><h3>Supply by era (4-year halvings)</h3>' +
       '<div class="tn-row"><span>Years</span><span>Reward / block · added</span></div>' +
       '<div class="tn-row"><span>0–4</span><span>50 MESH · 1,261,440,000</span></div>' +
@@ -1561,7 +1567,15 @@
     setText('[data-row="addr"] [data-v]', "Ed25519 · mesh01…", root);
     setText('[data-row="height"] [data-v]', info.height ?? "—", root);
     setText('[data-row="finality"] [data-v]', finalityLabel(info), root);
-    setText('[data-row="split"] [data-v]', markets.fair_split ? "45 / 45 / 10 from height 1" : "see markets", root);
+    setText(
+      '[data-row="split"] [data-v]',
+      markets.finder_unify
+        ? "90 / 10"
+        : markets.fair_split
+        ? "45 / 45 / 10 until #50000"
+        : "see markets",
+      root
+    );
     setText('[data-row="cpuLive"] [data-v]', markets.cpu_market || "—", root);
     setText('[data-row="gpuLive"] [data-v]', markets.gpu_market || "—", root);
     setText('[data-row="nodeLive"] [data-v]', markets.node_market || "—", root);
@@ -1581,22 +1595,21 @@
       "<li><b>6</b><span>Growth</span></li>" +
       "</ol></div>" +
       '<div class="tn-road">' +
-      '<article class="tn-road__item is-done"><div class="tn-road__mark" aria-hidden="true">1</div><div><span class="tn-kicker">Shipped</span><h4>Foundation</h4><p>Home-PC Fusion mining. Locked 45 / 45 / 10 rewards. Desktop miner, wallet, HTTPS pool, and this explorer. Optional AI exams do not find blocks.</p><ul class="tn-road__ticks"><li>CPU + GPU find one block</li><li>45 MESH to the miner, 5 to nodes</li><li>Public testnet explorer</li></ul></div></article>' +
+      '<article class="tn-road__item is-done"><div class="tn-road__mark" aria-hidden="true">1</div><div><span class="tn-kicker">Shipped</span><h4>Foundation</h4><p>Home-PC Fusion mining. Finder 90% / nodes 10% from height 50000. Desktop miner, wallet, HTTPS pool, and this explorer. Optional AI exams do not find blocks.</p><ul class="tn-road__ticks"><li>CPU + GPU find one block</li><li>45 MESH to the miner, 5 to nodes</li><li>Public testnet explorer</li></ul></div></article>' +
       '<article class="tn-road__item is-now"><div class="tn-road__mark" aria-hidden="true">2</div><div><span class="tn-kicker">Now</span><h4>Public testnet</h4><p>The live network is open. Miners earn MESH, wallets mature coinbase after 20 confirms, and the public pages stay in sync with the chain. This is the proving ground — not a tradable mainnet yet.</p><ul class="tn-road__ticks"><li>Open mining and node rewards</li><li>Docs a new visitor can actually read</li><li>Steady blocks, honest stats</li></ul></div></article>' +
       '<article class="tn-road__item"><div class="tn-road__mark" aria-hidden="true">3</div><div><span class="tn-kicker">Next</span><h4>Harden the network</h4><p>More independent public nodes, stronger finality, and an external security review. A long stability run with frozen rules before anyone should treat balances as money.</p><ul class="tn-road__ticks"><li>Multi-region public nodes</li><li>Independent PoW and consensus review</li><li>Signed releases and a bug bounty</li></ul></div></article>' +
       '<article class="tn-road__item"><div class="tn-road__mark" aria-hidden="true">4</div><div><span class="tn-kicker">Planned</span><h4>Mainnet launch</h4><p>A public genesis, production wallets and nodes, and a frozen emission schedule. Mainnet starts only after the harden phase is actually done.</p><ul class="tn-road__ticks"><li>Genesis ceremony</li><li>Production miner, node, and wallet</li><li>Clear emission and maturity rules</li></ul></div></article>' +
       '<article class="tn-road__item"><div class="tn-road__mark" aria-hidden="true">5</div><div><span class="tn-kicker">Planned</span><h4>Markets and listings</h4><p>After mainnet is live and stable: DEX pairs, CEX applications, and market-data pages so MESH can be found, priced, and traded like a normal coin.</p><ul class="tn-road__ticks"><li>Decentralized exchange pairs</li><li>Centralized exchange applications</li><li>Coin tracker and market-data listings</li></ul></div></article>' +
       '<article class="tn-road__item"><div class="tn-road__mark" aria-hidden="true">6</div><div><span class="tn-kicker">Planned</span><h4>Grow the network</h4><p>More pools and regions, easier onboarding, and a larger miner and node community. Partnerships and tooling that help people mine, hold, and run MESH — not a compute rental marketplace.</p><ul class="tn-road__ticks"><li>More public pools and regions</li><li>Mining community and guides</li><li>Wallets, explorers, and integrations</li></ul></div></article>' +
       "</div>" +
-      '<p class="tn-muted tn-road-foot">MESH is a home-PC coin with optional rematched AI exams. It is not a GPU rental marketplace, and AI cannot change the 45 / 45 / 10 split.</p>';
+      '<p class="tn-muted tn-road-foot">MESH is a home-PC coin with optional rematched AI exams. It is not a GPU rental marketplace, and AI cannot change the 90 / 10 split.</p>';
   }
 
   function buildMarketShell(root) {
     root.innerHTML =
       '<div class="tn-card">' +
-      "<h3>MESH work market</h3>" +
-      '<p class="tn-lead">MESH is for <b>paid, rematched work</b> — not only minting. From height <b>39000</b> a block is rejected without an immune-exam MATCH. GPU workers produce AI results; any CPU can seal them. The seed rematches. Both get helper-floor units. Fusion pads stay on one PC.</p>' +
-      '<p class="tn-muted">Hire a check: send MESH from the All-in-One <b>Work</b> tab with memo <span class="tn-mono">mesh-work:v1</span> to a helper address below. Spend after 20 confirms.</p>' +
+      "<h3>Homework board</h3>" +
+      '<p class="tn-lead">Optional homework. GPU miners can post AI jobs; any CPU can rematch them. The seed re-runs the job. This does not find the block and does not move 90 / 10. Fusion pads stay on one PC.</p>' +
       "</div>" +
       '<div class="tn-grid">' +
       '<div class="tn-card"><h3>Shared brain</h3>' +
@@ -1627,7 +1640,9 @@
     );
     setText(
       '[data-row="mexam"] [data-v]',
-      markets.gpu_exam_market || (markets.helper_floor ? "on" : "off until #39000"),
+      markets.finder_unify
+        ? "off — optional"
+        : markets.gpu_exam_market || (markets.helper_floor ? "on" : "off"),
       root
     );
     setText(
@@ -1637,7 +1652,7 @@
     );
     setText(
       '[data-row="mneed"] [data-v]',
-      markets.exam_required || markets.useful_work_active ? "yes" : "from height 39000",
+      markets.finder_unify ? "no" : markets.exam_required ? "yes until #50000" : "no",
       root
     );
     var seals = snap.seals || {};
@@ -1653,7 +1668,7 @@
             return (
               '<div class="tn-row"><span class="tn-mono">' +
               (o.kind || "job") +
-              "</span><span class="tn-mono">' +
+              '</span><span class="tn-mono">' +
               String(o.job_id || "").slice(0, 22) +
               "</span></div>"
             );
@@ -2365,7 +2380,8 @@
       page.name === "blocks" ||
       page.name === "tokenomics" ||
       page.name === "how" ||
-      page.name === "roadmap"
+      page.name === "roadmap" ||
+      page.name === "market"
     ) {
       refresh(false);
     }

@@ -12,12 +12,12 @@ This document is the product truth. If another spec disagrees with it, this one 
 MonkeyMesh is a home-PC coin and a small adaptive compute mesh.
 
 - **CPU and GPU together** find blocks (one Fusion digest — not two independent chains).
-- **GPU mixes the pad; CPU seals the Fusion digest** on the live tip. Finder takes **45% Fusion seal** and **45% GPU work**. Nodes take **10%**. Pads are **not** shipped over WAN.
-- **Every Fusion template assigns one immune exam** (named protocol sim). The node **CPU-rematches** it. Extra MNIST/brain jobs do not move BPS.
+- **GPU mixes the pad; CPU seals the Fusion digest** on the live tip. From height **50000** the finder takes **90%** in one pay line. Nodes take **10%**. Pads are **not** shipped over WAN.
+- **Immune exams are optional** rematched homework. Extra MNIST/brain jobs do not move BPS.
 - **Nodes earn only for useful work** (relay, AI routing, snapshot, archive), paid to a wallet the operator sets.
 - **AI never moves** emission split, opcodes, or the tip. Soft knobs only.
 
-It is **not** a foundation-model trainer, a chat agent, or “AI finds the block.” From height 39000 it **is** a paid homework mesh: exam MATCH to submit, helper-floor MESH, and a Work market for sending tips.
+It is **not** a foundation-model trainer, a chat agent, or “AI finds the block.” Optional rematched exams sit beside Fusion. They do not find the block and they do not move 90 / 10.
 
 ## 2. Why Fusion (not RandomX, not KawPow)
 
@@ -52,21 +52,21 @@ A warehouse of only CPUs or only GPUs is strictly weaker than a normal gaming PC
 
 Target spacing: **5 seconds**. Difficulty retargets on a human-gated schedule. Soft AI may nudge practice intensity, never BPS.
 
-**AI is not the Fusion clock.** The hash still finds the block. From height **39000** the **immune exam MATCH is required to submit** — a block without homework is rejected. That is useful work on the tip, not a second PoW.
+**AI is not the Fusion clock.** The hash still finds the block. Exams are optional checks. From height **50000** they are not required to submit.
 
 ## 4. How AI is paid (and verified)
 
 | Job | Who runs it | Who verifies | What it may change |
 |-----|-------------|--------------|--------------------|
-| Immune exam (1 per address/height) | Required to submit from 39000 | Same deterministic sim on the node | Helper-floor MESH (half of GPU 45%) |
-| Fusion GPU work | Block finder (GPU wave) | In the Fusion digest | GPU 45% (finder needs exam MATCH) |
-| Shared brain / protocol eval | GPU produces; any CPU can seal | Seed rematches both | Brain epoch **and** research units to producer + sealer |
+| Immune exam | Optional sidecar | Same deterministic sim on the node | Nothing after height 50000 |
+| Fusion GPU work | Block finder (GPU wave) | In the Fusion digest | Part of the 90% finder pot |
+| Shared brain / protocol eval | GPU produces; any CPU can seal | Seed rematches both | Brain epoch only — not a second pay market |
 
 GPU workers post an AI offer; a CPU rematches it from the public model + job input. The seed still re-runs the job. After height **39000** both addresses get helper-floor units. Fusion pads stay on one PC — this is not remote PoW sealing.
 
-After height **1**: **45% Fusion seal / 45% GPU work / 10% nodes**. From **39000** the GPU 45% splits: exam/brain helpers vs Fusion finder. Research still cannot move BPS, opcodes, or difficulty.
+After height **1**: 45% + 45% to the same finder / 10% nodes. From **50000**: **90% finder / 10% nodes**, one output. Research cannot move BPS, opcodes, or difficulty.
 
-Honesty: these are small, bit-exact MLPs and protocol sims — not ChatGPT-scale training. The explorer **Market** tab shows epoch, paid exams, and how to send MESH for a check.
+Honesty: these are small, bit-exact MLPs and protocol sims — not ChatGPT-scale training. The explorer **Market** tab shows the optional homework board.
 
 ## 5. How nodes are paid
 
@@ -91,7 +91,8 @@ Operators set a **reward wallet** (`mesh01…`) in the Node GUI Earnings tab, or
 | Block time | 5 s |
 | Coinbase maturity | 20 blocks |
 | Height 0 | 40% CPU / 40% GPU / 20% node (genesis only) |
-| Height ≥ **1** | **45% Fusion seal / 45% GPU work / 10% nodes** (same finder gets both 45s) |
+| Height ≥ **1** | 45% + 45% to the same finder / 10% nodes |
+| Height ≥ **50000** | **90% finder / 10% nodes** (one Fusion pay line) |
 | PoW | Fusion v4 from 80; **v5 sequential** (GPU then CPU then fuse) from 29,000 |
 | Addresses | Ed25519, `mesh01…` |
 | Vault | BIP39 + SLIP-0010; v2 Argon2id + XChaCha20-Poly1305 (15-char floor) |

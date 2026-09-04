@@ -10,7 +10,7 @@ Phases 1–4 below are **shipped**. Do not list Fusion, 90/10, or the miner GUI 
 |------|------------------------|
 | Chain | File-backed `chain.bin` + WAL, 5s target, coinbase maturity 20 |
 | PoW | MeshHash-Evo v3 from height 1; **Fusion v4 live from height 80** |
-| Markets | Genesis 40/40/20; height ≥ 1 is **45/45/10 isolated lanes**; GPU 45% is exam-floor + Fusion (`Build/35`) |
+| Markets | Genesis 40/40/20; height ≥ 1 is 45/45/10; height ≥ **50000** is **90/10 one finder pot** (`Build/04`) |
 | Miner | All-in-one GUI: CPU + CUDA/OpenCL MeshHash + optional AI |
 | Pool | HTTP GBT `mesh-pool` behind `https://eu.hashmonkeys.cloud` — pays the miner wallet |
 | Wallet | egui HD vault v2 (Argon2id + XChaCha20-Poly1305); Tauri is legacy |
@@ -23,10 +23,10 @@ Phases 1–4 below are **shipped**. Do not list Fusion, 90/10, or the miner GUI 
 
 | Item | Spec | Disposition |
 |------|------|-------------|
-| MonkeyMind marketplace | Build/12, Build/17 | **Shelved** as a full compute exchange. A thinner **Work market** (send MESH + paid exams/brain) is live from height 39000 |
+| MonkeyMind marketplace | Build/12, Build/17 | **Shelved**. Optional rematched exams stay homework, not a storefront |
 | MonkeyMesh Agent chat | Build/22 | **Removed** |
 | Guardian / quantum scoreboard as the Testnet page | Build/25, Build/26 | **Retired from public UI.** Optional research jobs may still run; they are not the live work |
-| AI as the only way to find a block | — | **Rejected** as the hash clock. Exam MATCH is required to *submit* from 39000; Fusion still finds the block |
+| AI as the only way to find a block | — | **Rejected** as the hash clock. Fusion finds the block. Exams are optional after 50000 |
 | Auto BPS / tip forks from AI | Build/21 | **Forbidden** |
 
 ## Now (public testnet)

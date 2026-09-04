@@ -82,6 +82,31 @@ fn helper_floor_cpu_exam_and_gpu_finder_share_gpu_lane() {
 }
 
 #[test]
+fn finder_unify_one_finder_output() {
+    let h = mesh_types::DEFAULT_FINDER_UNIFY_HEIGHT;
+    if !mesh_types::finder_unify_active(h) {
+        return;
+    }
+    let finder = genesis_reward_address();
+    let mut scores = HashMap::new();
+    scores.insert(
+        Address::from_pubkey_bytes(b"exam-helper").to_hex(),
+        mesh_types::EXAM_LANE_UNITS,
+    );
+    let tx = build_market_coinbase(h, finder, &scores, &HashMap::new());
+    let (mh, n_gpu, n_node) = tx.parse_pomc_memo().expect("memo");
+    assert_eq!(mh, h);
+    assert_eq!(n_gpu, 0);
+    assert_eq!(n_node, 1);
+    assert_eq!(tx.outputs.len(), 2);
+    assert_eq!(tx.outputs[0].address, finder);
+    assert_eq!(tx.outputs[0].amount, cpu_market_reward(h));
+    assert_eq!(tx.outputs[1].address, deferred_node_vault());
+    assert_eq!(tx.outputs[1].amount, node_market_reward(h));
+    assert_eq!(tx.total_output(), block_reward(h));
+}
+
+#[test]
 fn fair_split_gpu_units_cannot_eat_cpu_lane() {
     let h = mesh_types::DEFAULT_FAIR_SPLIT_HEIGHT;
     if !mesh_types::fair_lane_split_active(h) {

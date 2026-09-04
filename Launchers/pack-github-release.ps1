@@ -137,7 +137,7 @@ Unzip each archive as a folder. Keep every DLL next to the exe.
 
 Set your ``mesh01...`` address in the GUI. Packs ship with empty payout fields.
 
-Fusion v4 is live from height 80 (45% seal / 45% GPU work / 10% nodes).
+Fusion v4/v5 is live. From height **50000** the finder gets **90%** in one pay line; nodes get **10%**. Optional AI exams do not find the block.
 "@
 [System.IO.File]::WriteAllText($notesPath, $notes)
 

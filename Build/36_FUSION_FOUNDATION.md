@@ -12,7 +12,7 @@ Keep the distinctive identity: **CPU lane + GPU lane = one Fusion digest, one di
 | Keep | Why |
 |------|-----|
 | One digest, one difficulty | Two independent PoWs can be ignored; Fusion cannot |
-| 45% Fusion seal / 45% GPU work / 10% nodes | Locked until testnet ROI data says otherwise |
+| 90% finder / 10% nodes from height 50000 | One Fusion pay line; 45/45 labels retired |
 | Official miner: GPU wave → CPU seal → fuse (v5 @ 29,000) | Fair path; custom CPU rematch still possible |
 | AI is not the clock | Useful compute pays *beside* Fusion, never instead of it |
 | No premine / no ICO / no founder allocation | Fair launch |

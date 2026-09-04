@@ -2114,7 +2114,9 @@ pub fn build_market_coinbase(
     let cpu_amt = cpu_market_reward_with(height, gpu_units);
     let gpu_amt = gpu_market_reward_with(height, gpu_units);
     let node_amt = node_market_reward(height);
-    let (gpu, n_exam) = if mesh_types::helper_floor_active(height) {
+    let (gpu, n_exam) = if mesh_types::finder_unify_active(height) {
+        (Vec::new(), 0)
+    } else if mesh_types::helper_floor_active(height) {
         gpu_lane_helper_outputs(height, cpu_miner, gpu_scores, gpu_amt)
     } else if mesh_types::fair_lane_split_active(height) {
         let mut fusion = HashMap::new();
